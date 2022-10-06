@@ -38,6 +38,17 @@ local colors =
 }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 
+local textures = {}
+
+local function FindExisting( win_id )
+	for i, v in ipairs(textures) do
+		if v.id == win_id then
+			return i
+		end
+	end
+	return nil
+end
+
 local function ClearTable( t )
 	for i, v in ipairs(t) do
 		t [i] = nil
@@ -164,8 +175,18 @@ function UI.End( main_pass )
 	local cur_window = windows [#windows]
 	cur_window.w = layout.total_w
 	cur_window.h = layout.total_h
-	cur_window.texture = lovr.graphics.newTexture(layout.total_w, layout.total_h, { mipmaps = false })
-	cur_window.pass = lovr.graphics.getPass('render', { cur_window.texture })
+
+	local idx = FindExisting(cur_window.id)
+	if idx ~= nil then
+		cur_window.texture = textures [idx].texture
+	else
+		local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
+			texture = lovr.graphics.newTexture(layout.total_w, layout.total_h, { mipmaps = false }) }
+		cur_window.texture = entry.texture
+		table.insert(textures, entry)
+	end
+
+	cur_window.pass = lovr.graphics.getPass('render', cur_window.texture)
 	cur_window.pass:setFont(font.handle)
 	cur_window.pass:setDepthTest(nil)
 	cur_window.pass:setProjection(1, mat4():orthographic(cur_window.pass:getDimensions()))
@@ -226,15 +247,8 @@ end
 function UI.RenderFrame( main_pass )
 	table.insert(passes, main_pass)
 	lovr.graphics.submit(passes)
-
-	-- windows = nil
-	-- windows = {}
-	-- passes = nil
-	-- passes = {}
 	ClearTable(windows)
 	ClearTable(passes)
-	-- collectgarbage("setstepmul",400)
-	-- collectgarbage("collect")
 end
 
 function UI.Button( text, width, height )
