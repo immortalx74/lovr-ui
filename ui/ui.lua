@@ -6,12 +6,15 @@
 -- list
 local UI = {}
 
+local hovered_window_id = 0
+local listbox_state = {}
 local last_off_x = -50000
 local last_off_y = -50000
 local ray = {}
 local font = { handle, w, h, scale = 1 }
 local margin = 14
-local ui_scale = 0.005
+-- local ui_scale = 0.004
+local ui_scale = 0.0005
 local windows = {}
 local passes = {}
 local colors =
@@ -35,14 +38,22 @@ local colors =
 	list_bg = { 0.14, 0.14, 0.14 },
 	list_border = { 0, 0, 0 },
 	list_selected = { 0.3, 0.3, 1 },
+	list_highlight = { 0.3, 0.3, 0.3 }
 }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
-
 local textures = {}
 
-local function FindExisting( win_id )
-	for i, v in ipairs(textures) do
-		if v.id == win_id then
+local function Clamp( n, n_min, n_max )
+	if n < n_min then n = n_min
+	elseif n > n_max then n = n_max
+	end
+
+	return n
+end
+
+local function FindId( t, id )
+	for i, v in ipairs(t) do
+		if v.id == id then
 			return i
 		end
 	end
@@ -154,8 +165,8 @@ local function UpdateLayout( bbox )
 end
 
 function UI.RayInfo()
-	ray.pos = vec3(lovr.headset.getPosition("hand/left"))
-	ray.dir = quat(lovr.headset.getOrientation("hand/left")):direction()
+	ray.pos = vec3(lovr.headset.getPosition("hand/right"))
+	ray.dir = quat(lovr.headset.getOrientation("hand/right")):direction()
 end
 
 function UI.Init()
@@ -167,7 +178,8 @@ function UI.SameLine()
 end
 
 function UI.Begin( name, x, y, z )
-	local window = { id = Hash(name), x = x, y = y, z = z, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false, off_x = 0, off_y = 0 }
+	local window = { id = Hash(name), name = name, x = x, y = y, z = z, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false, off_x = 0,
+		off_y = 0 }
 	table.insert(windows, window)
 end
 
@@ -176,9 +188,19 @@ function UI.End( main_pass )
 	cur_window.w = layout.total_w
 	cur_window.h = layout.total_h
 
-	local idx = FindExisting(cur_window.id)
+	local idx = FindId(textures, cur_window.id)
 	if idx ~= nil then
-		cur_window.texture = textures [idx].texture
+		if cur_window.w == textures [idx].w and cur_window.h == textures [idx].h then
+			cur_window.texture = textures [idx].texture
+		else
+			lovr.graphics.wait()
+			textures [idx].texture:release()
+			table.remove(textures, idx)
+			local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
+				texture = lovr.graphics.newTexture(layout.total_w, layout.total_h, { mipmaps = false }), delete = true }
+			cur_window.texture = entry.texture
+			table.insert(textures, entry)
+		end
 	else
 		local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
 			texture = lovr.graphics.newTexture(layout.total_w, layout.total_h, { mipmaps = false }) }
@@ -229,6 +251,7 @@ function UI.End( main_pass )
 		if hit.x > -(cur_window.w * ui_scale) / 2 and hit.x < (cur_window.w * ui_scale) / 2 and hit.y > -(cur_window.h * ui_scale) / 2 and
 			hit.y < (cur_window.h * ui_scale) / 2 then
 			-- print(cur_window.w, hit.x)
+			hovered_window_id = cur_window.id
 			cur_window.is_hovered = true
 			last_off_x = hit.x * (1 / ui_scale) + (cur_window.w / 2)
 			last_off_y = -(hit.y * (1 / ui_scale) - (cur_window.h / 2))
@@ -247,6 +270,7 @@ end
 function UI.RenderFrame( main_pass )
 	table.insert(passes, main_pass)
 	lovr.graphics.submit(passes)
+
 	ClearTable(windows)
 	ClearTable(passes)
 end
@@ -273,9 +297,10 @@ function UI.Button( text, width, height )
 
 	local result = false
 	local col = colors.button_bg
-	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) then
+	local cur_window = windows [#windows]
+	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) and cur_window.id == hovered_window_id then
 		col = colors.button_bg_hover
-		if lovr.headset.wasReleased("hand/left", "trigger") then
+		if lovr.headset.wasReleased("hand/right", "trigger") then
 			result = true
 		end
 	end
@@ -288,34 +313,87 @@ function UI.Button( text, width, height )
 
 end
 
-function UI.ListBox( num_rows, max_chars, collection, sel_idx )
+-- NOTE temp functions
+function UI.ListUp()
+	listbox_state [1].scroll = listbox_state [1].scroll - 1
+end
+
+function UI.ListDown()
+	listbox_state [1].scroll = listbox_state [1].scroll + 1
+end
+
+function UI.ListBox( name, num_rows, max_chars, collection )
+	local cur_window = windows [#windows]
+	local lst_idx = FindId(listbox_state, Hash(cur_window.name .. name))
+
+	if lst_idx == nil then
+		local l = { id = Hash(cur_window.name .. name), scroll = 1, selected_idx = 1 }
+		table.insert(listbox_state, l)
+		return --NOTE: Is this the right thing to do?
+	end
+
 	local char_w = font.handle:getWidth("W")
 	local text_h = font.handle:getHeight()
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + (max_chars * char_w), h = (2 * margin) + (num_rows * text_h) }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + (max_chars * char_w), h = (num_rows * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + (max_chars * char_w), h = (2 * margin) + (num_rows * text_h) }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + (max_chars * char_w), h = (num_rows * text_h) }
 	end
 
 	UpdateLayout(bbox)
 
-	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) then
-		if lovr.headset.wasReleased("hand/left", "trigger") then
+	local highlight_idx = nil
 
+	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) and cur_window.id == hovered_window_id then
+		highlight_idx = math.floor((last_off_y - bbox.y) / (text_h)) + 1
+
+		-- Select
+		if lovr.headset.wasReleased("hand/right", "trigger") then
+			listbox_state [lst_idx].selected_idx = highlight_idx + listbox_state [lst_idx].scroll - 1
+			-- print(listbox_state[lst_idx].selected_idx)
+		end
+
+		-- Scroll
+		local thumb_x, thumb_y = lovr.headset.getAxis("hand/right", "thumbstick")
+		if thumb_y > 0.8 then
+			listbox_state [lst_idx].scroll = listbox_state [lst_idx].scroll - 1
+			listbox_state [lst_idx].scroll = Clamp(listbox_state [lst_idx].scroll, 1, #collection - num_rows + 1)
+		end
+
+		if thumb_y < -0.8 then
+			listbox_state [lst_idx].scroll = listbox_state [lst_idx].scroll + 1
+			listbox_state [lst_idx].scroll = Clamp(listbox_state [lst_idx].scroll, 1, #collection - num_rows + 1)
 		end
 	end
 
 	table.insert(windows [#windows].command_list, { type = "rect_fill", bbox = bbox, color = colors.list_bg })
 	table.insert(windows [#windows].command_list, { type = "rect_wire", bbox = bbox, color = colors.list_border })
 
-	local offset = 0
-	for i, v in ipairs(collection) do
-		local str = v:sub(1, max_chars)
+	-- Draw selected rect
+	local lst_scroll = listbox_state [lst_idx].scroll
+	local lst_selected_idx = listbox_state [lst_idx].selected_idx
+
+	if lst_selected_idx >= lst_scroll and lst_selected_idx <= lst_scroll + num_rows then
+		local selected_rect = { x = bbox.x, y = bbox.y + (lst_selected_idx - lst_scroll) * text_h, w = bbox.w, h = text_h }
+		table.insert(windows [#windows].command_list, { type = "rect_fill", bbox = selected_rect, color = colors.list_selected })
+	end
+	
+	-- Draw highlight when hovered
+	if highlight_idx ~= nil then
+		local highlight_rect = { x = bbox.x, y = bbox.y + ((highlight_idx - 1) * text_h), w = bbox.w, h = text_h }
+		table.insert(windows [#windows].command_list, { type = "rect_fill", bbox = highlight_rect, color = colors.list_highlight })
+	end
+
+	local y_offset = bbox.y
+	local last = lst_scroll + num_rows - 1
+
+	for i = lst_scroll, last do
+		local str = collection [i]:sub(1, max_chars)
 		table.insert(windows [#windows].command_list,
-			{ type = "text", text = str, bbox = { x = bbox.x, y = bbox.y, w = (str:len() * char_w) + margin, h = text_h + offset }, color = colors.text })
-		offset = offset + text_h + (2 * margin)
+			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = (str:len() * char_w) + margin, h = text_h }, color = colors.text })
+		y_offset = y_offset + text_h
 	end
 
 end
@@ -342,9 +420,10 @@ function UI.Slider( text, v, v_min, v_max, width )
 
 	local thumb_w = text_h
 	local col = colors.slider_bg
-	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h) then
+	local cur_window = windows [#windows]
+	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h) and cur_window.id == hovered_window_id then
 		col = colors.slider_bg_hover
-		if lovr.headset.isDown("hand/left", "trigger") then
+		if lovr.headset.isDown("hand/right", "trigger") then
 			v = MapRange(bbox.x + 2, bbox.x + slider_w, v_min, v_max, last_off_x)
 			if v >= v_min then
 				v = math.ceil(v)
@@ -403,9 +482,10 @@ function UI.CheckBox( text, checked )
 
 	local result = false
 	local col = colors.check_border
-	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) then
+	local cur_window = windows [#windows]
+	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) and cur_window.id == hovered_window_id then
 		col = colors.check_border_hover
-		if lovr.headset.wasReleased("hand/left", "trigger") then
+		if lovr.headset.wasReleased("hand/right", "trigger") then
 			result = true
 		end
 	end
@@ -439,9 +519,10 @@ function UI.RadioButton( text, checked )
 
 	local result = false
 	local col = colors.radio_border
-	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) then
+	local cur_window = windows [#windows]
+	if PointInRect(last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h) and cur_window.id == hovered_window_id then
 		col = colors.radio_border_hover
-		if lovr.headset.wasReleased("hand/left", "trigger") then
+		if lovr.headset.wasReleased("hand/right", "trigger") then
 			result = true
 		end
 	end
