@@ -1,13 +1,15 @@
 local UI = {}
 
 local dominant_hand = "hand/right"
-local hovered_window_id = 0
+local hovered_window_id = nil
+local focused_textbox = nil
 local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
 local ui_scale = 0.0005
 local font = { handle, w, h, scale = 1 }
 local listbox_state = {}
+local textbox_state = {}
 local ray = {}
 local windows = {}
 local passes = {}
@@ -34,9 +36,39 @@ local colors =
 	list_bg = { 0.14, 0.14, 0.14 },
 	list_border = { 0, 0, 0 },
 	list_selected = { 0.3, 0.3, 1 },
-	list_highlight = { 0.3, 0.3, 0.3 }
+	list_highlight = { 0.3, 0.3, 0.3 },
+	textbox_bg = { 0.03, 0.03, 0.03 },
+	textbox_bg_hover = { 0.07, 0.07, 0.07 },
+	textbox_border = { 0.1, 0.1, 0.1 },
+	textbox_border_focused = { 0.38, 0.38, 1 }
+}
+local osk = { textures = {}, visible = false, mode = {}, cur_mode = 1 }
+osk.mode[ 1 ] =
+{
+	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+	"q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
+	"a", "s", "d", "f", "g", "h", "j", "k", "l", ".",
+	"shift", "z", "x", "c", "v", "b", "n", "m", ",", "backspace",
+	"symbol", "left", "right", " ", " ", " ", "-", "_", "return", "return",
 }
 
+osk.mode[ 2 ] =
+{
+	"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+	"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+	"A", "S", "D", "F", "G", "H", "J", "K", "L", ":",
+	"shift", "Z", "X", "C", "V", "B", "N", "M", "?", "backspace",
+	"symbol", "left", "right", " ", " ", " ", "<", ">", "return", "return",
+}
+
+osk.mode[ 3 ] =
+{
+	"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+	"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+	"A", "S", "D", "F", "G", "H", "J", "K", "L", ":",
+	"shift", "Z", "X", "C", "V", "B", "N", "M", "?", "backspace",
+	"symbol", "left", "right", " ", " ", " ", "<", ">", "return", "return",
+}
 -- -------------------------------------------------------------------------- --
 --                             Internals                                      --
 -- -------------------------------------------------------------------------- --
@@ -170,6 +202,58 @@ local function UpdateLayout( bbox )
 	layout.same_line = false
 end
 
+local function ShowOSK( pass )
+	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = lovr.math.newMat4( 0, 1.2, -0.8 ), w = 640, h = 320,
+		command_list = {},
+		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
+	table.insert( windows, window )
+
+	if window.id == hovered_window_id then
+		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			if PointInRect( last_off_x, last_off_y, 0, 0, 640, 32 ) then
+				if last_off_x > 608 then
+					focused_textbox = nil
+					osk.visible = false
+				end
+			elseif focused_textbox then
+				local x_off = math.floor( last_off_x / 64 ) + 1
+				local y_off = math.floor( (last_off_y - 32) / 64 )
+				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
+				if btn == "shift" then
+					if osk.cur_mode == 1 then
+						osk.cur_mode = 2
+					elseif osk.cur_mode == 2 then
+						osk.cur_mode = 1
+					end
+				elseif btn == "left" then
+					focused_textbox.cursor = focused_textbox.cursor - 1
+					if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
+				elseif btn == "right" then
+					focused_textbox.cursor = focused_textbox.cursor + 1
+					if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
+				elseif btn == "return" then
+					focused_textbox = nil
+					osk.visible = false
+				else
+					local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor )
+					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+					focused_textbox.text = s1 .. btn .. s2
+					focused_textbox.cursor = focused_textbox.cursor + 1
+				end
+			end
+		end
+	end
+
+	pass:setColor( 1, 1, 1 )
+	pass:setMaterial( window.texture )
+
+	window.unscaled_transform = lovr.math.newMat4( window.transform )
+	local window_m = lovr.math.newMat4( window.unscaled_transform:scale( window.w * ui_scale, window.h * ui_scale ) )
+
+	pass:plane( window_m, "fill" )
+	pass:setMaterial()
+end
+
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
@@ -194,6 +278,8 @@ end
 
 function UI.Init()
 	font.handle = lovr.graphics.newFont( "ui/DejaVuSansMono.ttf" )
+	osk.textures[ 1 ] = lovr.graphics.newTexture( "ui/keyboard1.png" )
+	osk.textures[ 2 ] = lovr.graphics.newTexture( "ui/keyboard2.png" )
 end
 
 function UI.NewFrame( main_pass )
@@ -201,6 +287,10 @@ function UI.NewFrame( main_pass )
 end
 
 function UI.RenderFrame( main_pass )
+	if osk.visible then
+		ShowOSK( main_pass )
+	end
+
 	local closest = math.huge
 	local win_idx = nil
 
@@ -228,6 +318,7 @@ function UI.RenderFrame( main_pass )
 		last_off_y = -(hit.y * (1 / ui_scale) - (windows[ win_idx ].h / 2))
 	else
 		ray.target = nil
+		hovered_window_id = nil
 	end
 
 	DrawRay( main_pass )
@@ -356,6 +447,60 @@ function UI.Button( text, width, height )
 	return result
 end
 
+function UI.TextBox( name, num_chars )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. name )
+	local tb_idx = FindId( textbox_state, my_id )
+
+	if tb_idx == nil then
+		local tb = { id = my_id, text = "", scroll = 1, cursor = 0 }
+		table.insert( textbox_state, tb )
+		return -- skip 1 frame
+	end
+
+	local text_h = font.handle:getHeight()
+	local char_w = font.handle:getWidth( "W" )
+	local label_w = font.handle:getWidth( name )
+
+	local bbox = {}
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (3 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (3 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+	end
+
+	UpdateLayout( bbox )
+
+	local col1 = colors.textbox_bg
+	local col2 = colors.textbox_border
+	local cur_window = windows[ #windows ]
+	local text_rect = { x = bbox.x, y = bbox.y, w = bbox.w - margin - label_w, h = bbox.h }
+	local label_rect = { x = text_rect.x + text_rect.w + margin, y = bbox.y, w = label_w, h = bbox.h }
+
+	if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
+		col1 = colors.textbox_bg_hover
+		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			osk.visible = true
+			focused_textbox = textbox_state[ tb_idx ]
+		end
+	end
+
+	if focused_textbox and focused_textbox.id == my_id then col2 = colors.textbox_border_focused end
+
+	local str = textbox_state[ tb_idx ].text:sub( 1, num_chars )
+	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
+	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
+	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + margin, y = text_rect.y,
+		w = (str:len() * char_w) + margin, h = text_rect.h }, color = colors.text } )
+	table.insert( windows[ #windows ].command_list, { type = "text", text = name, bbox = label_rect, color = colors.text } )
+
+	if focused_textbox and focused_textbox.id == my_id and math.floor( lovr.timer.getTime() ) % 2 == 0 then
+		table.insert( windows[ #windows ].command_list,
+			{ type = "rect_fill", bbox = { x = text_rect.x + (textbox_state[ tb_idx ].cursor * char_w) + margin + 8, y = text_rect.y + margin, w = 2, h = text_h },
+				color = colors.text } )
+	end
+end
+
 function UI.ListBox( name, num_rows, max_chars, collection )
 	local cur_window = windows[ #windows ]
 	local lst_idx = FindId( listbox_state, Hash( cur_window.name .. name ) )
@@ -363,7 +508,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	if lst_idx == nil then
 		local l = { id = Hash( cur_window.name .. name ), scroll = 1, selected_idx = 1 }
 		table.insert( listbox_state, l )
-		return --NOTE: Is this the right thing to do?
+		return  -- skip 1 frame
 	end
 
 	local char_w = font.handle:getWidth( "W" )

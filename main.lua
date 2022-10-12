@@ -7,6 +7,7 @@ counter = 0
 slider_int_val = 0
 slider_float_val = 0
 window3_open = false
+text1 = "Blah, blah, blah..."
 some_list = { "fade", "wrong", "milky", "zinc", "doubt", "proud", "well-to-do",
 	"carry", "knife", "ordinary", "yielding", "yawn", "salt", "examine", "historical",
 	"group", "certain", "disgusting", "hum", "left", "camera", "grey", "memorize",
@@ -33,7 +34,9 @@ function lovr.draw( pass )
 	local lh_pose = lovr.math.newMat4( lovr.headset.getPose( "hand/left" ) )
 	lh_pose:rotate( -math.pi / 2, 1, 0, 0 )
 
-	UI.Begin( "FirstWindow", mat4( -0.5, 1.4, -0.9 ) )
+	UI.Begin( "FirstWindow", mat4( -0.5, 1.4, -1 ) )
+	UI.TextBox( "Name", 20 )
+	UI.TextBox( "Profession", 20 )
 	if UI.Button( "Test", 0, 0 ) then
 		print( "test" )
 	end
@@ -64,7 +67,8 @@ function lovr.draw( pass )
 	end
 	UI.End( pass )
 
-	UI.Begin( "SecondWindow", mat4( 0.1, 1.3, -0.6 ) )
+	UI.Begin( "SecondWindow", mat4( 0.1, 1.3, -1.3 ) )
+	UI.TextBox( "Location", 20 )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
 	UI.Button( "Forced height", 0, 200 )
 	UI.Button( "Forced width", 400 )
@@ -88,6 +92,7 @@ function lovr.draw( pass )
 		end
 		UI.End( pass )
 	end
+
 
 	UI.RenderFrame( pass )
 end
