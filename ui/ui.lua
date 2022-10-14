@@ -76,6 +76,7 @@ local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
 local ui_scale = 0.0005
+local controller_vibrate = false
 local font = { handle, w, h, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
@@ -114,7 +115,7 @@ local colors =
 	textbox_border_focused = { 0.58, 0.58, 1 },
 	image_button_tint = { 0.6, 0.6, 0.6 }
 }
-local osk = { textures = {}, visible = false, mode = {}, cur_mode = 1 }
+local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 osk.mode[ 1 ] =
 {
 	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
@@ -275,7 +276,16 @@ local function UpdateLayout( bbox )
 end
 
 local function ShowOSK( pass )
-	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = lovr.math.newMat4( 0, 1.2, -0.8 ), w = 640, h = 320,
+	if not osk.prev_frame_visible then
+		local init_transform = lovr.math.newMat4( lovr.headset.getPose( "head" ) )
+		init_transform:translate( vec3( 0, -0.3, -0.6 ) )
+		osk.transform:set( init_transform )
+	end
+
+	osk.prev_frame_visible = true
+
+	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform,
+		w = 640, h = 320,
 		command_list = {},
 		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
 	table.insert( windows, window )
@@ -283,6 +293,7 @@ local function ShowOSK( pass )
 	if window.id == hovered_window_id then
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
 			if focused_textbox then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 				local x_off = math.floor( last_off_x / 64 ) + 1
 				local y_off = math.floor( (last_off_y) / 64 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
@@ -318,6 +329,7 @@ local function ShowOSK( pass )
 					if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
 				elseif btn == "return" then
 					focused_textbox = nil
+					osk.prev_frame_visible = false
 					osk.visible = false
 				elseif btn == "backspace" then
 					if focused_textbox.cursor > 0 then
@@ -548,6 +560,7 @@ function UI.ImageButton( img_filename, width, height )
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
 		col = colors.image_button_tint
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 	end
@@ -583,6 +596,7 @@ function UI.Button( text, width, height )
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
 		col = colors.button_bg_hover
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 	end
@@ -627,6 +641,7 @@ function UI.TextBox( name, num_chars )
 	if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
 		col1 = colors.textbox_bg_hover
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			osk.visible = true
 			focused_textbox = textbox_state[ tb_idx ]
 		end
@@ -694,6 +709,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 		-- Select
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
 			listbox_state[ lst_idx ].selected_idx = highlight_idx + listbox_state[ lst_idx ].scroll - 1
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 
@@ -774,6 +790,10 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 		if lovr.headset.isDown( dominant_hand, "trigger" ) then
 			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
 		end
+
+		if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+		end
 	end
 
 	v = Clamp( math.ceil( v ), v_min, v_max )
@@ -822,6 +842,10 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 		col = colors.slider_bg_hover
 		if lovr.headset.isDown( dominant_hand, "trigger" ) then
 			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+		end
+
+		if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 		end
 	end
 
@@ -879,6 +903,7 @@ function UI.CheckBox( text, checked )
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
 		col = colors.check_border_hover
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 	end
@@ -915,6 +940,7 @@ function UI.RadioButton( text, checked )
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
 		col = colors.radio_border_hover
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 	end
