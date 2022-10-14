@@ -87,6 +87,7 @@ local passes = {}
 local textures = {}
 local image_buttons = {}
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
+local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true }
 local colors =
 {
 	text = { 0.8, 0.8, 0.8 },
@@ -377,7 +378,16 @@ function UI.GetWindowSize( name )
 	return nil
 end
 
+function UI.IsInteractionEnabled()
+	return input.interaction_enabled
+end
+
 function UI.InputInfo()
+	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
+		input.interaction_enabled = not input.interaction_enabled
+		hovered_window_id = nil
+	end
+
 	if lovr.headset.wasPressed( "hand/left", "trigger" ) then
 		dominant_hand = "hand/left"
 	elseif lovr.headset.wasPressed( "hand/right", "trigger" ) then
@@ -390,7 +400,9 @@ function UI.InputInfo()
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
 end
 
-function UI.Init()
+function UI.Init( interaction_toggle_device, interaction_toggle_button )
+	input.interaction_toggle_device = interaction_toggle_device or input.interaction_toggle_device
+	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
 	font.handle = lovr.graphics.newFont( "ui/DejaVuSansMono.ttf" )
 	osk.textures[ 1 ] = lovr.graphics.newTexture( "ui/keyboard1.png" )
 	osk.textures[ 2 ] = lovr.graphics.newTexture( "ui/keyboard2.png" )
@@ -402,41 +414,44 @@ function UI.NewFrame( main_pass )
 end
 
 function UI.RenderFrame( main_pass )
-	if osk.visible then
-		ShowOSK( main_pass )
-	end
+	if input.interaction_enabled then
+		if osk.visible then
+			ShowOSK( main_pass )
+		end
 
-	local closest = math.huge
-	local win_idx = nil
+		local closest = math.huge
+		local win_idx = nil
 
-	for i, v in ipairs( windows ) do
-		local hit = Raycast( ray.pos, ray.dir, v.transform )
-		local dist = ray.pos:distance( v.transform:unpack( false ) )
-		if hit and hit.x > -(windows[ i ].w * ui_scale) / 2 and hit.x < (windows[ i ].w * ui_scale) / 2 and
-			hit.y > -(windows[ i ].h * ui_scale) / 2 and
-			hit.y < (windows[ i ].h * ui_scale) / 2 then
-			if dist < closest then
-				win_idx = i
-				closest = dist
+		for i, v in ipairs( windows ) do
+			local hit = Raycast( ray.pos, ray.dir, v.transform )
+			local dist = ray.pos:distance( v.transform:unpack( false ) )
+			if hit and hit.x > -(windows[ i ].w * ui_scale) / 2 and hit.x < (windows[ i ].w * ui_scale) / 2 and
+				hit.y > -(windows[ i ].h * ui_scale) / 2 and
+				hit.y < (windows[ i ].h * ui_scale) / 2 then
+				if dist < closest then
+					win_idx = i
+					closest = dist
+				end
 			end
 		end
+
+		if win_idx then
+			local hit = Raycast( ray.pos, ray.dir, windows[ win_idx ].transform )
+			ray.hit = hit
+			hovered_window_id = windows[ win_idx ].id
+			windows[ win_idx ].is_hovered = true
+			ray.target = lovr.math.newMat4( windows[ win_idx ].transform )
+
+			last_off_x = hit.x * (1 / ui_scale) + (windows[ win_idx ].w / 2)
+			last_off_y = -(hit.y * (1 / ui_scale) - (windows[ win_idx ].h / 2))
+		else
+			ray.target = nil
+			hovered_window_id = nil
+		end
+
+		DrawRay( main_pass )
 	end
 
-	if win_idx then
-		local hit = Raycast( ray.pos, ray.dir, windows[ win_idx ].transform )
-		ray.hit = hit
-		hovered_window_id = windows[ win_idx ].id
-		windows[ win_idx ].is_hovered = true
-		ray.target = lovr.math.newMat4( windows[ win_idx ].transform )
-
-		last_off_x = hit.x * (1 / ui_scale) + (windows[ win_idx ].w / 2)
-		last_off_y = -(hit.y * (1 / ui_scale) - (windows[ win_idx ].h / 2))
-	else
-		ray.target = nil
-		hovered_window_id = nil
-	end
-
-	DrawRay( main_pass )
 	table.insert( passes, main_pass )
 	lovr.graphics.submit( passes )
 
