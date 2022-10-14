@@ -1,3 +1,72 @@
+-- ------------------------------------------------------------------------------------------------------------------ --
+--                        lovr-ui: An immediate mode VR GUI library for LOVR (https://lovr.org)                       --
+--                                    Github: https://github.com/immortalx74/lovr-ui                                  --
+-- ------------------------------------------------------------------------------------------------------------------ --
+
+-- --------------------------------------------------- How to use --------------------------------------------------- --
+-- * Put the ui folder inside your project and do UI = require "ui/ui"                                                --
+-- * Initialize the library by calling 'UI.Init()' on lovr.load()                                                     --
+-- * Handle controller input by calling 'UI.InputInfo()' on lovr.update()                                             --
+-- * In lovr.draw(), call 'UI.NewFrame()' and 'UI.RenderFrame(pass)'                                                  --
+-- * Everything inside NewFrame/RenderFrame is your GUI                                                               --
+-- ------------------------------------------------------------------------------------------------------------------ --
+
+-- -------------------------------------------------- How it works -------------------------------------------------- --
+-- The general idea of an immediate mode ui is that creation, rendering and interaction of a widget is handled by a   --
+-- single function call. e.g. calling 'if UI.Button("Click Me") then ...' creates and renders a button on the current --
+-- window, and returns true if clicked. Those widget calls have to be  wrapped inside a 'UI.Begin()', 'UI.End()'      --
+-- block which defines a single window.                                                                               --
+-- Positioning of widgets is done by what is called an 'auto-layout'. All that does is calculate the total width and  --
+-- height of the window and position the widgets with margins between them. In lovr-ui the layout is row-based, which --
+-- means that every widget is placed bellow the previous one, unless you call 'UI.SameLine()'. That places the widget --
+-- next to the previous one, instead of bellow. The height of the row is determined by the 'tallest' widget.          --
+-- This kind of layout places some limits, e.g.:                                                                      --
+-- ++++++++++++++++  ++++++++++                                                                                       --
+-- +              +  +   2    +  <--- This is OK                                                                      --
+-- +              +  ++++++++++                                                                                       --
+-- +      1       +                                                                                                   --
+-- +              +  ++++++++++                                                                                       --
+-- +              +  +   3    +  <--- Can't do this. Can only be placed next to 2 or bellow 1                         --
+-- ++++++++++++++++  ++++++++++                                                                                       --
+-- This will be addressed in the future by allowing a Begin/End block to be nested inside another Begin/End block     --
+--                                                                                                                    --
+-- Immediate mode GUIs try to be stateless but some state is unavoidable. e.g. for ListBox and TextBox, scroll        --
+-- position, selected index, cursor position, etc. are stored in global tables (listbox_state, textbox_state)         --
+-- The whole GUI is created and destroyed every frame, and unlike retained mode GUIs, interaction happens at the end  --
+-- of the frame. That means that there's always a 1 frame delay.                                                      --
+-- Each widget, besides contributing to the layout, records draw-commands like rectangles, circles and text, that     --
+-- describe how it will be drawn.                                                                                     --
+-- On each 'UI.Begin()' call a new window of undetermined size is created and stored in the 'windows' table. A hash   --
+-- using its name is calculated to uniquely identify it later. On 'UI.End()' the window size is calculated and an     --
+-- associated texture is created. If the previous ID already exists (meaning the window was rendered for at least 1   --
+-- frame), then the texture is never recreated, unless the window size has changed.                                   --
+-- Then, the draw-commands are iterated and everything is drawn on the texture associated with the window.            --
+-- Each window also acquires a pass which is then stored in another global table.                                     --
+-- Finally, on 'UI.RenderFrame()' all window passes along with the main pass are submitted for LOVR to render them.   --
+--                                                                                                                    --
+-- Some notes:                                                                                                        --
+-- * Widget sizes are mostly character-width based. This is done for simplicity. There are exceptions like Button,    --
+--   which takes optional width/height parameters in pixels.                                                          --
+-- * The correct way to handle input is to differentiate between 'active' and 'hot' widget. This is not currently     --
+--   implemented. It's clearly wrong because if you interact with a slider and you hover on another slider, the second--
+--   one becomes active (it shouldn't).                                                                               --
+-- * The 'dominant' hand can be changed by clicking the corresponding trigger button. Scrolling in ListBoxes is done  --
+--   by using the Y-axis of thumb stick.
+------------------------------------------------------------------------------------------------------------------------
+
+-- ------------------------------------------ Credits and acknowledgements ------------------------------------------ --
+-- Bjorn Swenson (bjornbytes) - https://github.com/bjornbytes                                                         --
+-- For creating the awesome LOVR framework, providing help and answering every single question!                       --
+--                                                                                                                    --
+-- Casey Muratori - https://caseymuratori.com/                                                                        --
+-- For developing the immediate mode technique, coining the term, and creating the HandMade community.                --
+--                                                                                                                    --
+-- Omar Cornut - https://github.com/ocornut                                                                           --
+-- For popularizing the concept with the outstanding Dear ImGui library.                                              --
+--                                                                                                                    --
+-- rxi - https://github.com/rxi                                                                                       --
+-- For creating microui. The most tiny UI library from which lovr-ui was inspired from.                               --
+-- ------------------------------------------------------------------------------------------------------------------ --
 local UI = {}
 
 local dominant_hand = "hand/right"
@@ -8,12 +77,14 @@ local last_off_y = -50000
 local margin = 14
 local ui_scale = 0.0005
 local font = { handle, w, h, scale = 1 }
+local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
 local textbox_state = {}
 local ray = {}
 local windows = {}
 local passes = {}
 local textures = {}
+local image_buttons = {}
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 local colors =
 {
@@ -38,9 +109,10 @@ local colors =
 	list_selected = { 0.3, 0.3, 1 },
 	list_highlight = { 0.3, 0.3, 0.3 },
 	textbox_bg = { 0.03, 0.03, 0.03 },
-	textbox_bg_hover = { 0.07, 0.07, 0.07 },
+	textbox_bg_hover = { 0.11, 0.11, 0.11 },
 	textbox_border = { 0.1, 0.1, 0.1 },
-	textbox_border_focused = { 0.38, 0.38, 1 }
+	textbox_border_focused = { 0.58, 0.58, 1 },
+	image_button_tint = { 0.6, 0.6, 0.6 }
 }
 local osk = { textures = {}, visible = false, mode = {}, cur_mode = 1 }
 osk.mode[ 1 ] =
@@ -63,11 +135,11 @@ osk.mode[ 2 ] =
 
 osk.mode[ 3 ] =
 {
+	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
 	"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
-	"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
-	"A", "S", "D", "F", "G", "H", "J", "K", "L", ":",
-	"shift", "Z", "X", "C", "V", "B", "N", "M", "?", "backspace",
-	"symbol", "left", "right", " ", " ", " ", "<", ">", "return", "return",
+	"+", "=", "[", "]", "{", "}", "\\", "|", "/", "`",
+	"shift", "~", ",", ".", "<", ">", ";", ":", "\"", "backspace",
+	"symbol", "left", "right", " ", " ", " ", "-", "_", "return", "return",
 }
 -- -------------------------------------------------------------------------- --
 --                             Internals                                      --
@@ -210,35 +282,62 @@ local function ShowOSK( pass )
 
 	if window.id == hovered_window_id then
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
-			if PointInRect( last_off_x, last_off_y, 0, 0, 640, 32 ) then
-				if last_off_x > 608 then
-					focused_textbox = nil
-					osk.visible = false
-				end
-			elseif focused_textbox then
+			if focused_textbox then
 				local x_off = math.floor( last_off_x / 64 ) + 1
-				local y_off = math.floor( (last_off_y - 32) / 64 )
+				local y_off = math.floor( (last_off_y) / 64 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
+
 				if btn == "shift" then
-					if osk.cur_mode == 1 then
+					if osk.cur_mode == 1 or osk.cur_mode == 3 then
 						osk.cur_mode = 2
-					elseif osk.cur_mode == 2 then
+					else
+						osk.cur_mode = 1
+					end
+				elseif btn == "symbol" then
+					if osk.cur_mode == 1 or osk.cur_mode == 2 then
+						osk.cur_mode = 3
+					else
 						osk.cur_mode = 1
 					end
 				elseif btn == "left" then
 					focused_textbox.cursor = focused_textbox.cursor - 1
+					if focused_textbox.cursor < focused_textbox.scroll - 1 then
+						focused_textbox.scroll = focused_textbox.scroll - 1
+						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+					end
+
 					if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
 				elseif btn == "right" then
 					focused_textbox.cursor = focused_textbox.cursor + 1
+					if focused_textbox.cursor > focused_textbox.num_chars + focused_textbox.scroll - 1 then
+						focused_textbox.scroll = focused_textbox.scroll + 1
+						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then focused_textbox.scroll = focused_textbox.text:len() -
+								focused_textbox.num_chars + 1
+						end
+					end
 					if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
 				elseif btn == "return" then
 					focused_textbox = nil
 					osk.visible = false
+				elseif btn == "backspace" then
+					if focused_textbox.cursor > 0 then
+						local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
+						local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+						focused_textbox.text = s1 .. s2
+						focused_textbox.cursor = focused_textbox.cursor - 1
+						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars + 1 then
+							focused_textbox.scroll = focused_textbox.scroll - 1
+							if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+						end
+					end
 				else
 					local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor )
 					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
 					focused_textbox.text = s1 .. btn .. s2
 					focused_textbox.cursor = focused_textbox.cursor + 1
+					if focused_textbox.cursor > focused_textbox.num_chars then
+						focused_textbox.scroll = focused_textbox.scroll + 1
+					end
 				end
 			end
 		end
@@ -274,12 +373,16 @@ function UI.InputInfo()
 	end
 	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
 	ray.dir = quat( lovr.headset.getOrientation( dominant_hand ) ):direction()
+
+	caret.counter = caret.counter + 1
+	if caret.counter > caret.blink_rate then caret.counter = 0 end
 end
 
 function UI.Init()
 	font.handle = lovr.graphics.newFont( "ui/DejaVuSansMono.ttf" )
 	osk.textures[ 1 ] = lovr.graphics.newTexture( "ui/keyboard1.png" )
 	osk.textures[ 2 ] = lovr.graphics.newTexture( "ui/keyboard2.png" )
+	osk.textures[ 3 ] = lovr.graphics.newTexture( "ui/keyboard3.png" )
 end
 
 function UI.NewFrame( main_pass )
@@ -394,9 +497,16 @@ function UI.End( main_pass )
 		elseif v.type == "text" then
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:text( v.text, vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ) )
+		elseif v.type == "image" then
+			-- NOTE Temp fix. Had to do negative vertical scale. Otherwise image gets flipped?
+			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, -v.bbox.h, 0 ) )
+			cur_window.pass:setColor( v.color )
+			cur_window.pass:setMaterial( v.texture )
+			cur_window.pass:plane( m, "fill" )
+			cur_window.pass:setMaterial()
+			cur_window.pass:setColor( 1, 1, 1 )
 		end
 	end
-
 
 	main_pass:setColor( 1, 1, 1 )
 	main_pass:setMaterial( cur_window.texture )
@@ -408,6 +518,43 @@ function UI.End( main_pass )
 
 	ResetLayout()
 	table.insert( passes, cur_window.pass )
+end
+
+function UI.ImageButton( img_filename, width, height )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. img_filename )
+	local ib_idx = FindId( image_buttons, my_id )
+
+	if ib_idx == nil then
+		local tex = lovr.graphics.newTexture( img_filename )
+		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight() }
+		table.insert( image_buttons, ib )
+		return -- skip 1 frame
+	end
+
+	local ib = image_buttons[ ib_idx ]
+	local bbox = {}
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = ib.w, h = ib.h }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = ib.w, h = ib.h }
+	end
+
+	UpdateLayout( bbox )
+
+	local result = false
+	local col = { 1, 1, 1 }
+
+	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		col = colors.image_button_tint
+		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			result = true
+		end
+	end
+
+	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = col } )
+
+	return result
 end
 
 function UI.Button( text, width, height )
@@ -453,7 +600,7 @@ function UI.TextBox( name, num_chars )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
-		local tb = { id = my_id, text = "", scroll = 1, cursor = 0 }
+		local tb = { id = my_id, text = "", scroll = 1, cursor = 0, num_chars = num_chars }
 		table.insert( textbox_state, tb )
 		return -- skip 1 frame
 	end
@@ -464,9 +611,9 @@ function UI.TextBox( name, num_chars )
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (3 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (4 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (3 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (4 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
 	end
 
 	UpdateLayout( bbox )
@@ -488,17 +635,27 @@ function UI.TextBox( name, num_chars )
 	if focused_textbox and focused_textbox.id == my_id then col2 = colors.textbox_border_focused end
 
 	local str = textbox_state[ tb_idx ].text:sub( 1, num_chars )
+
+	if focused_textbox and focused_textbox.id == my_id then
+		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_chars - 1 )
+	end
+
 	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
 	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + margin, y = text_rect.y,
 		w = (str:len() * char_w) + margin, h = text_rect.h }, color = colors.text } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = name, bbox = label_rect, color = colors.text } )
 
-	if focused_textbox and focused_textbox.id == my_id and math.floor( lovr.timer.getTime() ) % 2 == 0 then
+	-- caret
+	if focused_textbox and focused_textbox.id == my_id and caret.counter % caret.blink_rate > (caret.blink_rate / 2) then
 		table.insert( windows[ #windows ].command_list,
-			{ type = "rect_fill", bbox = { x = text_rect.x + (textbox_state[ tb_idx ].cursor * char_w) + margin + 8, y = text_rect.y + margin, w = 2, h = text_h },
+			{ type = "rect_fill",
+				bbox = { x = text_rect.x + ((textbox_state[ tb_idx ].cursor - textbox_state[ tb_idx ].scroll + 1) * char_w) + margin + 8, y = text_rect.y + margin, w = 2,
+					h = text_h },
 				color = colors.text } )
 	end
+
+	return textbox_state[ tb_idx ].text
 end
 
 function UI.ListBox( name, num_rows, max_chars, collection )
@@ -508,7 +665,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	if lst_idx == nil then
 		local l = { id = Hash( cur_window.name .. name ), scroll = 1, selected_idx = 1 }
 		table.insert( listbox_state, l )
-		return  -- skip 1 frame
+		return -- skip 1 frame
 	end
 
 	local char_w = font.handle:getWidth( "W" )

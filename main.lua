@@ -12,7 +12,6 @@ some_list = { "fade", "wrong", "milky", "zinc", "doubt", "proud", "well-to-do",
 	"carry", "knife", "ordinary", "yielding", "yawn", "salt", "examine", "historical",
 	"group", "certain", "disgusting", "hum", "left", "camera", "grey", "memorize",
 	"squalid", "second-hand", "domineering", "puzzled", "cloudy", "arrogant", "flat" }
-some_list_idx = 2
 
 function lovr.load()
 	UI.Init()
@@ -35,7 +34,10 @@ function lovr.draw( pass )
 	lh_pose:rotate( -math.pi / 2, 1, 0, 0 )
 
 	UI.Begin( "FirstWindow", mat4( -0.5, 1.4, -1 ) )
-	UI.TextBox( "Name", 20 )
+	if UI.ImageButton( "ui/lovrlogo.png" ) then print( "imagebutton" ) end
+	UI.SameLine()
+	UI.Label( "<- An ImageButton" )
+	UI.TextBox( "Name", 6 )
 	UI.TextBox( "Profession", 20 )
 	if UI.Button( "Test", 0, 0 ) then
 		print( "test" )
@@ -92,7 +94,6 @@ function lovr.draw( pass )
 		end
 		UI.End( pass )
 	end
-
 
 	UI.RenderFrame( pass )
 end
