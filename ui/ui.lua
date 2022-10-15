@@ -292,12 +292,15 @@ local function ShowOSK( pass )
 		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
 	table.insert( windows, window )
 
+	local x_off
+	local y_off
+
 	if window.id == hovered_window_id then
+		x_off = math.floor( last_off_x / 64 ) + 1
+		y_off = math.floor( (last_off_y) / 64 )
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
 			if focused_textbox then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-				local x_off = math.floor( last_off_x / 64 ) + 1
-				local y_off = math.floor( (last_off_y) / 64 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
 				if btn == "shift" then
@@ -357,12 +360,33 @@ local function ShowOSK( pass )
 		end
 	end
 
-	pass:setColor( 1, 1, 1 )
-	pass:setMaterial( window.texture )
-
 	window.unscaled_transform = lovr.math.newMat4( window.transform )
 	local window_m = lovr.math.newMat4( window.unscaled_transform:scale( window.w * ui_scale, window.h * ui_scale ) )
 
+	-- Highlight hovered button
+	if x_off then
+		pass:setColor( 1, 1, 1 )
+		local m = lovr.math.newMat4( window.transform ):translate( vec3( (-352 * ui_scale), 128 * ui_scale, 0.001 ) ) -- 320 + 32, 160 - 32
+
+		-- Space and Return are wider
+		local spc = x_off >= 4 and x_off <= 6 and y_off == 4
+		local rtn = x_off >= 9 and x_off <= 10 and y_off == 4
+		
+		if spc then
+			m:translate( 5 * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
+			m:scale( 192 * ui_scale, 64 * ui_scale, 1 )
+		elseif rtn then
+			m:translate( 9.5 * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
+			m:scale( 128 * ui_scale, 64 * ui_scale, 1 )
+		else
+			m:translate( x_off * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
+			m:scale( 64 * ui_scale, 64 * ui_scale, 1 )
+		end
+
+		pass:plane( m, "line" )
+	end
+	pass:setColor( 1, 1, 1 )
+	pass:setMaterial( window.texture )
 	pass:plane( window_m, "fill" )
 	pass:setMaterial()
 end
