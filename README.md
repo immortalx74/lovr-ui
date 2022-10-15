@@ -11,6 +11,8 @@
  - Change the dominant hand by pushing the corresponding trigger button.
  - Scroll in ListBox with the Y-axis of the analog stick.
  - Text entry is done by an on-screen keyboard (appears when a TextBox has focus)
+ - Interaction can be enabled/disabled by a user-configurable button (default: Left Thumbstick Press)
+ - Windows can be dragged with the grip button, if a mutable mat4 is passed in `UI.Begin()`
 
 **Widgets:**
 
