@@ -81,6 +81,7 @@ local font = { handle, w, h, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
 local textbox_state = {}
+local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local ray = {}
 local windows = {}
 local passes = {}
@@ -114,7 +115,7 @@ local colors =
 	textbox_bg_hover = { 0.11, 0.11, 0.11 },
 	textbox_border = { 0.1, 0.1, 0.1 },
 	textbox_border_focused = { 0.58, 0.58, 1 },
-	image_button_tint = { 0.6, 0.6, 0.6 }
+	image_button_border_highlight = { 0.5, 0.5, 0.5 }
 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 osk.mode[ 1 ] =
@@ -394,7 +395,8 @@ function UI.InputInfo()
 		dominant_hand = "hand/right"
 	end
 	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
-	ray.dir = quat( lovr.headset.getOrientation( dominant_hand ) ):direction()
+	ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
+	ray.dir = ray.ori:direction()
 
 	caret.counter = caret.counter + 1
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
@@ -538,6 +540,26 @@ function UI.End( main_pass )
 	main_pass:setColor( 1, 1, 1 )
 	main_pass:setMaterial( cur_window.texture )
 	cur_window.unscaled_transform = lovr.math.newMat4( cur_window.transform )
+
+	if cur_window.id == hovered_window_id then
+		if lovr.headset.wasPressed( dominant_hand, "grip" ) then
+			window_drag.offset:set( mat4( ray.pos, ray.ori ):invert() * cur_window.transform )
+		end
+		if lovr.headset.isDown( dominant_hand, "grip" ) then
+			window_drag.id = cur_window.id
+			window_drag.is_dragging = true
+		end
+	end
+
+	if lovr.headset.wasReleased( dominant_hand, "grip" ) then
+		window_drag.id = nil
+		window_drag.is_dragging = false
+	end
+
+	if window_drag.is_dragging and cur_window.id == window_drag.id then
+		cur_window.transform:set( mat4( ray.pos, ray.ori ) * (window_drag.offset) )
+	end
+
 	local window_m = lovr.math.newMat4( cur_window.unscaled_transform:scale( cur_window.w * ui_scale, cur_window.h * ui_scale ) )
 
 	main_pass:plane( window_m, "fill" )
@@ -570,17 +592,16 @@ function UI.ImageButton( img_filename, width, height )
 	UpdateLayout( bbox )
 
 	local result = false
-	local col = { 1, 1, 1 }
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		col = colors.image_button_tint
+		table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.image_button_border_highlight } )
 		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = col } )
+	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
 
 	return result
 end

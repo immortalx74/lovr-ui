@@ -1,5 +1,6 @@
 UI = require "ui/ui"
 
+win2pos = lovr.math.newMat4( 0.1, 1.3, -1.3 )
 check1 = true
 check2 = false
 rb_idx = 1
@@ -69,7 +70,7 @@ function lovr.draw( pass )
 	end
 	UI.End( pass )
 
-	UI.Begin( "SecondWindow", mat4( 0.1, 1.3, -1.3 ) )
+	UI.Begin( "SecondWindow", win2pos )
 	UI.TextBox( "Location", 20 )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
 	UI.Button( "Forced height", 0, 200 )
