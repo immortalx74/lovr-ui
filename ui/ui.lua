@@ -371,7 +371,7 @@ local function ShowOSK( pass )
 		-- Space and Return are wider
 		local spc = x_off >= 4 and x_off <= 6 and y_off == 4
 		local rtn = x_off >= 9 and x_off <= 10 and y_off == 4
-		
+
 		if spc then
 			m:translate( 5 * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
 			m:scale( 192 * ui_scale, 64 * ui_scale, 1 )
@@ -426,9 +426,10 @@ function UI.InputInfo()
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
 end
 
-function UI.Init( interaction_toggle_device, interaction_toggle_button )
+function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled )
 	input.interaction_toggle_device = interaction_toggle_device or input.interaction_toggle_device
 	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
+	input.interaction_enabled = (enabled ~= false)
 	font.handle = lovr.graphics.newFont( "ui/DejaVuSansMono.ttf" )
 	osk.textures[ 1 ] = lovr.graphics.newTexture( "ui/keyboard1.png" )
 	osk.textures[ 2 ] = lovr.graphics.newTexture( "ui/keyboard2.png" )
