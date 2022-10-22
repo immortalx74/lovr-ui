@@ -69,6 +69,8 @@
 -- ------------------------------------------------------------------------------------------------------------------ --
 local UI = {}
 
+local root = (...):match('(.-)[^%./]+$'):gsub('%.', '/')
+
 local dominant_hand = "hand/right"
 local hovered_window_id = nil
 local focused_textbox = nil
@@ -430,10 +432,10 @@ function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled 
 	input.interaction_toggle_device = interaction_toggle_device or input.interaction_toggle_device
 	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
 	input.interaction_enabled = (enabled ~= false)
-	font.handle = lovr.graphics.newFont( "ui/DejaVuSansMono.ttf" )
-	osk.textures[ 1 ] = lovr.graphics.newTexture( "ui/keyboard1.png" )
-	osk.textures[ 2 ] = lovr.graphics.newTexture( "ui/keyboard2.png" )
-	osk.textures[ 3 ] = lovr.graphics.newTexture( "ui/keyboard3.png" )
+	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
+	osk.textures[ 1 ] = lovr.graphics.newTexture( root .. "keyboard1.png" )
+	osk.textures[ 2 ] = lovr.graphics.newTexture( root .. "keyboard2.png" )
+	osk.textures[ 3 ] = lovr.graphics.newTexture( root .. "keyboard3.png" )
 end
 
 function UI.NewFrame( main_pass )
