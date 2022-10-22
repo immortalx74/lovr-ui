@@ -1,5 +1,5 @@
 UI = require "ui/ui"
-
+buf = "John"
 win2pos = lovr.math.newMat4( 0.1, 1.3, -1.3 )
 check1 = true
 check2 = false
@@ -38,10 +38,10 @@ function lovr.draw( pass )
 	if UI.ImageButton( "ui/lovrlogo.png" ) then print( "imagebutton" ) end
 	UI.SameLine()
 	UI.Label( "<- An ImageButton" )
-	UI.TextBox( "Name", 6 )
-	UI.TextBox( "Profession", 20 )
+	buf = UI.TextBox( "Name", 6, buf ) -- Mutate original string
+	UI.TextBox( "Profession", 20, "" )
 	if UI.Button( "Test", 0, 0 ) then
-		print( "test" )
+		print( buf )
 	end
 	UI.SameLine()
 	UI.Button( "SameLine()" )
@@ -71,7 +71,7 @@ function lovr.draw( pass )
 	UI.End( pass )
 
 	UI.Begin( "SecondWindow", win2pos )
-	UI.TextBox( "Location", 20 )
+	UI.TextBox( "Location", 20, "" )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
 	UI.Button( "Forced height", 0, 200 )
 	UI.Button( "Forced width", 400 )

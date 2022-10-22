@@ -669,13 +669,13 @@ function UI.Button( text, width, height )
 	return result
 end
 
-function UI.TextBox( name, num_chars )
+function UI.TextBox( name, num_chars, buffer )
 	local cur_window = windows[ #windows ]
 	local my_id = Hash( cur_window.name .. name )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
-		local tb = { id = my_id, text = "", scroll = 1, cursor = 0, num_chars = num_chars }
+		local tb = { id = my_id, text = buffer, scroll = 1, cursor = 0, num_chars = num_chars }
 		table.insert( textbox_state, tb )
 		return -- skip 1 frame
 	end
