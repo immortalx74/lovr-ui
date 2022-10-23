@@ -25,6 +25,8 @@
  - Label
  - CheckBox
  - RadioButton
+ - TabBar
+ - Dummy
 
 **General Info:**
 `UI.Begin()`/`UI.End()` defines a window. Widget function calls placed inside this block, are then part of this window.

@@ -69,7 +69,7 @@
 -- ------------------------------------------------------------------------------------------------------------------ --
 local UI = {}
 
-local root = (...):match('(.-)[^%./]+$'):gsub('%.', '/')
+local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
 
 local dominant_hand = "hand/right"
 local hovered_window_id = nil
@@ -117,7 +117,11 @@ local colors =
 	textbox_bg_hover = { 0.11, 0.11, 0.11 },
 	textbox_border = { 0.1, 0.1, 0.1 },
 	textbox_border_focused = { 0.58, 0.58, 1 },
-	image_button_border_highlight = { 0.5, 0.5, 0.5 }
+	image_button_border_highlight = { 0.5, 0.5, 0.5 },
+	tab_bar_bg = { 0.1, 0.1, 0.1 },
+	tab_bar_border = { 0, 0, 0 },
+	tab_bar_hover = { 0.2, 0.2, 0.2 },
+	tab_bar_highlight = { 0.3, 0.3, 1 },
 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 osk.mode[ 1 ] =
@@ -631,6 +635,67 @@ function UI.ImageButton( img_filename, width, height )
 	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
 
 	return result
+end
+
+function UI.Dummy( width, height )
+	local bbox = {}
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = width, h = height }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = width, h = height }
+	end
+
+	UpdateLayout( bbox )
+end
+
+function UI.TabBar( tabs, idx )
+	local text_h = font.handle:getHeight()
+	local bbox = {}
+
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = 0, h = (2 * margin) + text_h }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = 0, h = (2 * margin) + text_h }
+	end
+
+	local result = false, idx
+	local total_w = 0
+	local col = colors.tab_bar_bg
+	local cur_window = windows[ #windows ]
+	local x_off = bbox.x
+
+	for i, v in ipairs( tabs ) do
+		local text_w = font.handle:getWidth( v )
+		local tab_w = text_w + (2 * margin)
+		bbox.w = bbox.w + tab_w
+
+		if PointInRect( last_off_x, last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == hovered_window_id then
+			col = colors.tab_bar_hover
+			if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				idx = i
+				result = true
+			end
+		else
+			col = colors.tab_bar_bg
+		end
+
+		local tab_rect = { x = x_off, y = bbox.y, w = tab_w, h = bbox.h }
+		table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = tab_rect, color = col } )
+		table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = tab_rect, color = colors.tab_bar_border } )
+		table.insert( windows[ #windows ].command_list, { type = "text", text = v, bbox = tab_rect, color = colors.text } )
+
+		if idx == i then
+			table.insert( windows[ #windows ].command_list,
+				{ type = "rect_fill", bbox = { x = tab_rect.x + 2, y = tab_rect.y + tab_rect.h - 6, w = tab_rect.w - 4, h = 5 }, color = colors.tab_bar_highlight } )
+		end
+		x_off = x_off + tab_w
+	end
+
+	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.tab_bar_border } )
+	UpdateLayout( bbox )
+
+	return result, idx
 end
 
 function UI.Button( text, width, height )

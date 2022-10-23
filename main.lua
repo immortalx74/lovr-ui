@@ -8,6 +8,7 @@ counter = 0
 slider_int_val = 0
 slider_float_val = 0
 window3_open = false
+tab_bar_idx = 1
 text1 = "Blah, blah, blah..."
 some_list = { "fade", "wrong", "milky", "zinc", "doubt", "proud", "well-to-do",
 	"carry", "knife", "ordinary", "yielding", "yawn", "salt", "examine", "historical",
@@ -33,7 +34,6 @@ function lovr.draw( pass )
 
 	local lh_pose = lovr.math.newMat4( lovr.headset.getPose( "hand/left" ) )
 	lh_pose:rotate( -math.pi / 2, 1, 0, 0 )
-
 	UI.Begin( "FirstWindow", mat4( -0.5, 1.4, -1 ) )
 	if UI.ImageButton( "ui/lovrlogo.png" ) then print( "imagebutton" ) end
 	UI.SameLine()
@@ -95,6 +95,26 @@ function lovr.draw( pass )
 		end
 		UI.End( pass )
 	end
+
+	UI.Begin( "TabBar window", mat4( -0.9, 1.4, -1 ) )
+	local was_clicked, idx = UI.TabBar( { "first", "second", "third" }, tab_bar_idx )
+	if was_clicked then
+		tab_bar_idx = idx
+	end
+	if tab_bar_idx == 1 then
+		UI.Button( "Button on 1st tab" )
+		UI.Label( "Label on 1st tab" )
+		UI.Label( "LÖVR..." )
+	elseif tab_bar_idx == 2 then
+		UI.Button( "Button on 2nd tab" )
+		UI.Label( "Label on 2nd tab" )
+		UI.Label( "is..." )
+	elseif tab_bar_idx == 3 then
+		UI.Button( "Button on 3rd tab" )
+		UI.Label( "Label on 3rd tab" )
+		UI.Label( "awesome!" )
+	end
+	UI.End( pass )
 
 	UI.RenderFrame( pass )
 end
