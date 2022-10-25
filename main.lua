@@ -56,7 +56,10 @@ function lovr.draw( pass )
 	slider_int_val = UI.SliderInt( "SliderInt", slider_int_val, -100, 100, 400 )
 	slider_float_val = UI.SliderFloat( "SliderFloat", slider_float_val, -100, 100, 400, 3 )
 	UI.Label( "Some list of things:" )
-	UI.ListBox( "Somelistbox", 15, 20, some_list )
+	local list_clicked, list_selected_idx = UI.ListBox( "Somelistbox", 15, 20, some_list )
+	if list_clicked then
+		print( list_selected_idx )
+	end
 	UI.SameLine()
 	if UI.Button( "Delete" ) then table.remove( some_list ) end
 	if UI.RadioButton( "Radio1", rb_idx == 1 ) then

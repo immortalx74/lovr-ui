@@ -886,7 +886,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 		y_offset = y_offset + text_h
 	end
 
-	return result
+	return result, listbox_state[ lst_idx ].selected_idx
 end
 
 function UI.SliderInt( text, v, v_min, v_max, width )
