@@ -333,12 +333,16 @@ local function ShowOSK( pass )
 					focused_textbox.cursor = focused_textbox.cursor + 1
 					if focused_textbox.cursor > focused_textbox.num_chars + focused_textbox.scroll - 1 then
 						focused_textbox.scroll = focused_textbox.scroll + 1
-						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then focused_textbox.scroll = focused_textbox.text:len() -
-								focused_textbox.num_chars + 1
+						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then
+							focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
 						end
 					end
 					if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
 				elseif btn == "return" then
+					focused_textbox.cursor = focused_textbox.text:len()
+					if focused_textbox.text:len() - focused_textbox.num_chars + 1 > 0 then
+						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
+					end
 					focused_textbox = nil
 					osk.prev_frame_visible = false
 					osk.visible = false
@@ -759,7 +763,7 @@ function UI.TextBox( name, num_chars, buffer )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
-		local tb = { id = my_id, text = buffer, scroll = 1, cursor = 0, num_chars = num_chars }
+		local tb = { id = my_id, text = buffer, scroll = 1, cursor = buffer:len(), num_chars = num_chars }
 		table.insert( textbox_state, tb )
 		return -- skip 1 frame
 	end
