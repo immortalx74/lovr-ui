@@ -27,7 +27,7 @@
  - Dummy
 
 ---
-`UI.Button(text, [width], [height])`
+`UI.Button(text, width, height)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`text`|string|button's text
@@ -186,6 +186,16 @@ Returns `number`, `number`, [1] window width, [2] window height
 NOTE: If no window with this ID was found, return type is `nil`
 
 ---
+`UI.SetInteractionEnabled(enabled)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`enabled`|boolean|if interaction should be enabled
+
+Returns `nothing`  
+NOTE: Useful if you want to set interaction on/off programmatically, without pressing the toggle button
+
+---
+
 `UI.Init(interaction_toggle_device, interaction_toggle_button, enabled)`
 |Argument|Type|Description
 |:---|:---|:---|
@@ -220,6 +230,8 @@ NOTE: Should be called on `lovr.draw()`. Windows and widgets should be called af
 |`main_pass`|Pass|the main Pass object.
 
 Returns nothing.  
+
+---
 
 **General Info:**
 `UI.Begin()`/`UI.End()` defines a window. Widget function calls placed inside this block, are then part of this window.

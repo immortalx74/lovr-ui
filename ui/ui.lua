@@ -417,6 +417,13 @@ function UI.IsInteractionEnabled()
 	return input.interaction_enabled
 end
 
+function UI.SetInteractionEnabled( enabled )
+	input.interaction_enabled = enabled
+	if not enabled then
+		hovered_window_id = nil
+	end
+end
+
 function UI.InputInfo()
 	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
 		input.interaction_enabled = not input.interaction_enabled
