@@ -88,7 +88,7 @@ local ray = {}
 local windows = {}
 local passes = {}
 local textures = {}
-local image_buttons = {}
+local image_buttons = { num_calls = {} }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true }
 local colors =
@@ -492,6 +492,20 @@ function UI.RenderFrame( main_pass )
 	ClearTable( passes )
 	ray = nil
 	ray = {}
+
+	if #image_buttons > 0 then
+		for i = #image_buttons, 1, -1 do
+			image_buttons.num_calls[ i ] = image_buttons.num_calls[ i ] + 1
+			if image_buttons[ i ].frame_count < image_buttons.num_calls[ i ] then
+				image_buttons[ i ].texture:release()
+				table.remove( image_buttons, i )
+				table.remove( image_buttons.num_calls, i )
+			else
+				image_buttons.num_calls[ i ] = 1
+				image_buttons[ i ].frame_count = 1
+			end
+		end
+	end
 end
 
 function UI.SameLine()
@@ -607,12 +621,15 @@ function UI.ImageButton( img_filename, width, height )
 
 	if ib_idx == nil then
 		local tex = lovr.graphics.newTexture( img_filename )
-		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight() }
+		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), frame_count = 1 }
 		table.insert( image_buttons, ib )
+		table.insert( image_buttons.num_calls, 0 )
 		return -- skip 1 frame
 	end
 
 	local ib = image_buttons[ ib_idx ]
+	ib.frame_count = ib.frame_count + 1
+
 	local bbox = {}
 	if layout.same_line then
 		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = ib.w, h = ib.h }

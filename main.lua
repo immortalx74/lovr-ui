@@ -90,6 +90,7 @@ function lovr.draw( pass )
 
 	if window3_open then
 		UI.Begin( "ThirdWindow", lh_pose )
+		UI.ImageButton( "ui/lovrlogo.png", 32, 32 )
 		UI.Label( "Operating System: " .. lovr.system.getOS() )
 		UI.Label( "User Directory: " .. lovr.filesystem.getUserDirectory() )
 		UI.Label( "Average Delta: " .. string.format( "%.6f", lovr.timer.getAverageDelta() ) )
