@@ -122,6 +122,9 @@ local colors =
 	tab_bar_border = { 0, 0, 0 },
 	tab_bar_hover = { 0.2, 0.2, 0.2 },
 	tab_bar_highlight = { 0.3, 0.3, 1 },
+	progress_bar_bg = { 0.2, 0.2, 0.2 },
+	progress_bar_fill = { 0.3, 0.3, 1 },
+	progress_bar_border = { 0, 0, 0 }
 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 osk.mode[ 1 ] =
@@ -623,6 +626,37 @@ function UI.End( main_pass )
 
 	ResetLayout()
 	table.insert( passes, cur_window.pass )
+end
+
+function UI.ProgressBar( progress, width )
+	local char_w = font.handle:getWidth( "W" )
+	local text_h = font.handle:getHeight()
+
+	if width and width >= (2 * margin) + (4 * char_w) then
+		width = width
+	else
+		width = 300
+	end
+
+	local bbox = {}
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = width, h = (2 * margin) + text_h }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = width, h = (2 * margin) + text_h }
+	end
+
+	UpdateLayout( bbox )
+
+	progress = Clamp( progress, 0, 100 )
+	local fill_w = math.floor( (width * progress) / 100 )
+	local str = progress .. "%"
+
+	table.insert( windows[ #windows ].command_list,
+		{ type = "rect_fill", bbox = { x = bbox.x, y = bbox.y, w = fill_w, h = bbox.h }, color = colors.progress_bar_fill } )
+	table.insert( windows[ #windows ].command_list,
+		{ type = "rect_fill", bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = colors.progress_bar_bg } )
+	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.progress_bar_border } )
+	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = bbox, color = colors.text } )
 end
 
 function UI.ImageButton( img_filename, width, height )

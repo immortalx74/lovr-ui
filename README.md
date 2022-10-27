@@ -107,6 +107,16 @@ If `width` is provided, it will be taken into account only if it exceeds the wid
 Returns nothing  
 
 ---
+`UI.ProgressBar(progress, width)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`progress`|number|progress percentage
+|`width` _[opt]_|number|width in pixels
+
+Returns nothing  
+NOTE: Default width is 300 pixels
+
+---
 `UI.CheckBox(text, checked)`
 |Argument|Type|Description
 |:---|:---|:---|

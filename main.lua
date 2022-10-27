@@ -76,6 +76,8 @@ function lovr.draw( pass )
 	UI.Begin( "SecondWindow", win2pos )
 	UI.TextBox( "Location", 20, "" )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
+	UI.Label( "Energy bill increase:" )
+	UI.ProgressBar( 50, 400 )
 	UI.Button( "Forced height", 0, 200 )
 	UI.Button( "Forced width", 400 )
 
