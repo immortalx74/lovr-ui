@@ -9,6 +9,16 @@ slider_int_val = 0
 slider_float_val = 0
 window3_open = false
 tab_bar_idx = 1
+col_list_idx = 1
+
+-- Override only some colors
+custom_theme =
+{
+	text = { 0.6, 0.5, 0.1 },
+	window_bg = { 0.1, 0.1, 0.1 },
+	button_bg = { 0.08, 0.08, 0.08 },
+	list_bg = { 0.14, 0.14, 0.2 },
+}
 text1 = "Blah, blah, blah..."
 some_list = { "fade", "wrong", "milky", "zinc", "doubt", "proud", "well-to-do",
 	"carry", "knife", "ordinary", "yielding", "yawn", "salt", "examine", "historical",
@@ -18,6 +28,7 @@ some_list = { "fade", "wrong", "milky", "zinc", "doubt", "proud", "well-to-do",
 function lovr.load()
 	UI.Init()
 	lovr.graphics.setBackgroundColor( 0.4, 0.4, 1 )
+	col_list = UI.GetColorNames()
 end
 
 function lovr.update()
@@ -120,6 +131,41 @@ function lovr.draw( pass )
 		UI.Label( "Label on 3rd tab" )
 		UI.Label( "awesome!" )
 	end
+	UI.End( pass )
+
+	-- color tweaker test
+	UI.Begin( "Color editor window", mat4( 0.5, 1.2, -1.3 ) )
+	UI.Label( "Color editor" )
+	if UI.Button( "Dark" ) then
+		UI.SetColorTheme( "dark" )
+	end
+	UI.SameLine()
+	if UI.Button( "Light" ) then
+		UI.SetColorTheme( "light" )
+	end
+	UI.SameLine()
+	if UI.Button( "Custom..." ) then
+		UI.SetColorTheme( custom_theme, "dark" )
+	end
+	local val = UI.GetColor( col_list[ col_list_idx ] )
+	if val then
+		val[ 1 ] = UI.SliderFloat( "R", val[ 1 ], 0, 1, 600, 3 )
+		val[ 2 ] = UI.SliderFloat( "G", val[ 2 ], 0, 1, 600, 3 )
+		val[ 3 ] = UI.SliderFloat( "B", val[ 3 ], 0, 1, 600, 3 )
+		UI.SetColor( col_list[ col_list_idx ], { val[ 1 ], val[ 2 ], val[ 3 ] } )
+	end
+	if UI.Button( "Print to output" ) then
+		local t = {}
+		print( "my_colors = {" )
+		for i, v in ipairs( col_list ) do
+			local val = UI.GetColor( col_list[ i ] )
+			t[ i ] = val
+			print( col_list[ i ] ..
+				" = " .. "{" .. string.format( "%.3f", t[ i ][ 1 ] ) .. ", " .. string.format( "%.3f", t[ i ][ 2 ] ) .. ", " .. string.format( "%.3f", t[ i ][ 3 ] ) .. "}," )
+		end
+		print( "}" )
+	end
+	col_list_idx = select( 2, UI.ListBox( "color list", 10, 30, col_list ) )
 	UI.End( pass )
 
 	UI.RenderFrame( pass )

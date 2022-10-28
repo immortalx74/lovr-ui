@@ -91,7 +91,9 @@ local textures = {}
 local image_buttons = { num_calls = {} }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true }
-local colors =
+local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
+local color_themes = {}
+color_themes.dark =
 {
 	text = { 0.8, 0.8, 0.8 },
 	window_bg = { 0.26, 0.26, 0.26 },
@@ -126,7 +128,49 @@ local colors =
 	progress_bar_fill = { 0.3, 0.3, 1 },
 	progress_bar_border = { 0, 0, 0 }
 }
-local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
+
+color_themes.light =
+{
+	check_border = { 0.000, 0.000, 0.000 },
+	check_border_hover = { 0.760, 0.760, 0.760 },
+	textbox_bg_hover = { 0.570, 0.570, 0.570 },
+	textbox_border = { 0.000, 0.000, 0.000 },
+	text = { 0.120, 0.120, 0.120 },
+	button_bg_hover = { 0.900, 0.900, 0.900 },
+	radio_mark = { 0.172, 0.172, 0.172 },
+	slider_bg = { 0.830, 0.830, 0.830 },
+	progress_bar_fill = { 0.830, 0.830, 1.000 },
+	progress_bar_bg = { 1.000, 1.000, 1.000 },
+	tab_bar_highlight = { 0.151, 0.140, 1.000 },
+	tab_bar_hover = { 0.802, 0.797, 0.795 },
+	tab_bar_border = { 0.000, 0.000, 0.000 },
+	tab_bar_bg = { 1.000, 0.994, 0.999 },
+	image_button_border_highlight = { 0.500, 0.500, 0.500 },
+	textbox_bg = { 0.700, 0.700, 0.700 },
+	window_border = { 0.000, 0.000, 0.000 },
+	window_bg = { 0.930, 0.930, 0.930 },
+	button_bg = { 0.800, 0.800, 0.800 },
+	progress_bar_border = { 0.000, 0.000, 0.000 },
+	slider_bg_hover = { 0.870, 0.870, 0.870 },
+	slider_thumb = { 0.700, 0.700, 0.700 },
+	list_bg = { 0.877, 0.883, 0.877 },
+	list_border = { 0.000, 0.000, 0.000 },
+	list_selected = { 0.686, 0.687, 0.688 },
+	list_highlight = { 0.808, 0.810, 0.811 },
+	check_mark = { 0.000, 0.000, 0.000 },
+	radio_border = { 0.000, 0.000, 0.000 },
+	list_selected = { 0.686, 0.687, 0.688 },
+	list_highlight = { 0.808, 0.810, 0.811 },
+	check_mark = { 0.000, 0.000, 0.000 },
+	radio_border = { 0.000, 0.000, 0.000 },
+	radio_border_hover = { 0.760, 0.760, 0.760 },
+	textbox_border_focused = { 0.000, 0.000, 1.000 },
+	button_bg_click = { 0.120, 0.120, 0.120 },
+	button_border = { 0.000, 0.000, 0.000 },
+}
+
+local colors = color_themes.dark
+
 osk.mode[ 1 ] =
 {
 	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
@@ -407,6 +451,36 @@ end
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
+function UI.GetColorNames()
+	local t = {}
+	for i, v in pairs( colors ) do
+		t[ #t + 1 ] = tostring( i )
+	end
+	return t
+end
+
+function UI.GetColor( col_name )
+	return colors[ col_name ]
+end
+
+function UI.SetColor( col_name, color )
+	colors[ col_name ] = color
+end
+
+function UI.SetColorTheme( theme, copy_from )
+	if type( theme ) == "string" then
+		colors = color_themes[ theme ]
+	elseif type( theme ) == "table" then
+		copy_from = copy_from or "dark"
+		for i, v in pairs( color_themes[ copy_from ] ) do
+			if theme[ i ] == nil then
+				theme[ i ] = v
+			end
+		end
+		colors = theme
+	end
+end
+
 function UI.GetWindowSize( name )
 	local idx = FindId( windows, Hash( name ) )
 	if idx ~= nil then

@@ -25,6 +25,7 @@
  - RadioButton
  - TabBar
  - Dummy
+ - ProgressBar
 
 ---
 `UI.Button(text, width, height)`
@@ -234,12 +235,51 @@ NOTE: Should be called on `lovr.update()`
 Returns nothing.  
 NOTE: Should be called on `lovr.draw()`. Windows and widgets should be called after this function, and a `UI.RenderFrame(main_pass)` finalizes the whole UI.
 
+---
 `UI.RenderFrame(main_pass)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`main_pass`|Pass|the main Pass object.
 
 Returns nothing.  
+
+---
+`UI.GetColorNames()`
+|Argument|Type|Description
+|:---|:---|:---|
+|`none`||
+
+Returns `table`, color names  
+NOTE: Helper to get the color keys as a table of strings
+
+---
+`UI.GetColor(col_name)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`col_name`|string|color key
+
+Returns `table`, color value  
+NOTE: Helper to get a color value
+
+---
+`UI.SetColor(col_name, color)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`col_name`|string|color key
+|`col_name`|string|color value
+
+Returns `nothing`  
+NOTE: Helper to set a color value
+
+---
+`UI.SetColorTheme(theme, copy_from)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`theme`|string or table|color key or table with overrided keys
+|`copy_from` _[opt]_|string|theme to copy values from
+
+Returns `nothing`  
+NOTE: Sets a theme to one of the built-in ones ("dark", "light") if the passed argument is a string. Also accepts a table of colors. If the passed table doesn't contain all of the keys, the rest of them will be copied from the built-in theme of the `copy_from` argument.
 
 ---
 
