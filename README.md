@@ -11,6 +11,8 @@
  - Change the dominant hand by pushing the corresponding trigger button.
  - Scroll in ListBox with the Y-axis of the analog stick.
  - Text entry is done by an on-screen keyboard (appears when a TextBox has focus)
+ - Move windows by pointing at them and holding the grip button.
+ - Enable/Disable interaction with the GUI by pressing the Left Thumbstick down (user configurable)
 
 **Widgets:**
 
@@ -141,9 +143,10 @@ NOTE: To set the state on a group of RadioButtons use this idiom:
 `-- etc...`
 
 ---
-`UI.TabBar(tabs, idx)`
+`UI.TabBar(name, tabs, idx)`
 |Argument|Type|Description
 |:---|:---|:---|
+|`name`|string|TabBar ID
 |`tabs`|table|a table of strings
 |`idx`|number|initial active tab index
 

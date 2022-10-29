@@ -3,57 +3,6 @@
 --                                    Github: https://github.com/immortalx74/lovr-ui                                  --
 -- ------------------------------------------------------------------------------------------------------------------ --
 
--- --------------------------------------------------- How to use --------------------------------------------------- --
--- * Put the ui folder inside your project and do UI = require "ui/ui"                                                --
--- * Initialize the library by calling 'UI.Init()' on lovr.load()                                                     --
--- * Handle controller input by calling 'UI.InputInfo()' on lovr.update()                                             --
--- * In lovr.draw(), call 'UI.NewFrame()' and 'UI.RenderFrame(pass)'                                                  --
--- * Everything inside NewFrame/RenderFrame is your GUI                                                               --
--- ------------------------------------------------------------------------------------------------------------------ --
-
--- -------------------------------------------------- How it works -------------------------------------------------- --
--- The general idea of an immediate mode ui is that creation, rendering and interaction of a widget is handled by a   --
--- single function call. e.g. calling 'if UI.Button("Click Me") then ...' creates and renders a button on the current --
--- window, and returns true if clicked. Those widget calls have to be  wrapped inside a 'UI.Begin()', 'UI.End()'      --
--- block which defines a single window.                                                                               --
--- Positioning of widgets is done by what is called an 'auto-layout'. All that does is calculate the total width and  --
--- height of the window and position the widgets with margins between them. In lovr-ui the layout is row-based, which --
--- means that every widget is placed bellow the previous one, unless you call 'UI.SameLine()'. That places the widget --
--- next to the previous one, instead of bellow. The height of the row is determined by the 'tallest' widget.          --
--- This kind of layout places some limits, e.g.:                                                                      --
--- ++++++++++++++++  ++++++++++                                                                                       --
--- +              +  +   2    +  <--- This is OK                                                                      --
--- +              +  ++++++++++                                                                                       --
--- +      1       +                                                                                                   --
--- +              +  ++++++++++                                                                                       --
--- +              +  +   3    +  <--- Can't do this. Can only be placed next to 2 or bellow 1                         --
--- ++++++++++++++++  ++++++++++                                                                                       --
--- This will be addressed in the future by allowing a Begin/End block to be nested inside another Begin/End block     --
---                                                                                                                    --
--- Immediate mode GUIs try to be stateless but some state is unavoidable. e.g. for ListBox and TextBox, scroll        --
--- position, selected index, cursor position, etc. are stored in global tables (listbox_state, textbox_state)         --
--- The whole GUI is created and destroyed every frame, and unlike retained mode GUIs, interaction happens at the end  --
--- of the frame. That means that there's always a 1 frame delay.                                                      --
--- Each widget, besides contributing to the layout, records draw-commands like rectangles, circles and text, that     --
--- describe how it will be drawn.                                                                                     --
--- On each 'UI.Begin()' call a new window of undetermined size is created and stored in the 'windows' table. A hash   --
--- using its name is calculated to uniquely identify it later. On 'UI.End()' the window size is calculated and an     --
--- associated texture is created. If the previous ID already exists (meaning the window was rendered for at least 1   --
--- frame), then the texture is never recreated, unless the window size has changed.                                   --
--- Then, the draw-commands are iterated and everything is drawn on the texture associated with the window.            --
--- Each window also acquires a pass which is then stored in another global table.                                     --
--- Finally, on 'UI.RenderFrame()' all window passes along with the main pass are submitted for LOVR to render them.   --
---                                                                                                                    --
--- Some notes:                                                                                                        --
--- * Widget sizes are mostly character-width based. This is done for simplicity. There are exceptions like Button,    --
---   which takes optional width/height parameters in pixels.                                                          --
--- * The correct way to handle input is to differentiate between 'active' and 'hot' widget. This is not currently     --
---   implemented. It's clearly wrong because if you interact with a slider and you hover on another slider, the second--
---   one becomes active (it shouldn't).                                                                               --
--- * The 'dominant' hand can be changed by clicking the corresponding trigger button. Scrolling in ListBoxes is done  --
---   by using the Y-axis of thumb stick.
-------------------------------------------------------------------------------------------------------------------------
-
 -- ------------------------------------------ Credits and acknowledgements ------------------------------------------ --
 -- Bjorn Swenson (bjornbytes) - https://github.com/bjornbytes                                                         --
 -- For creating the awesome LOVR framework, providing help and answering every single question!                       --
@@ -71,6 +20,14 @@ local UI = {}
 
 local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
 
+local e_trigger = {}
+e_trigger.idle = 1
+e_trigger.pressed = 2
+e_trigger.down = 3
+e_trigger.released = 4
+
+local activeID = nil
+local hotID = nil
 local dominant_hand = "hand/right"
 local hovered_window_id = nil
 local focused_textbox = nil
@@ -79,21 +36,21 @@ local last_off_y = -50000
 local margin = 14
 local ui_scale = 0.0005
 local controller_vibrate = false
+local image_buttons_default_ttl = 2
 local font = { handle, w, h, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
 local textbox_state = {}
-local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local ray = {}
 local windows = {}
 local passes = {}
 local textures = {}
 local image_buttons = {}
-local image_buttons_default_ttl = 2
-local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
-local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true }
-local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 local color_themes = {}
+local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
+local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
+local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle }
+local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
 color_themes.dark =
 {
 	text = { 0.8, 0.8, 0.8 },
@@ -352,7 +309,7 @@ local function ShowOSK( pass )
 	if window.id == hovered_window_id then
 		x_off = math.floor( last_off_x / 64 ) + 1
 		y_off = math.floor( (last_off_y) / 64 )
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.released then
 			if focused_textbox then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
@@ -513,6 +470,17 @@ function UI.InputInfo()
 	elseif lovr.headset.wasPressed( "hand/right", "trigger" ) then
 		dominant_hand = "hand/right"
 	end
+
+	if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
+		input.trigger = e_trigger.pressed
+	elseif lovr.headset.isDown( dominant_hand, "trigger" ) then
+		input.trigger = e_trigger.down
+	elseif lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		input.trigger = e_trigger.released
+	elseif not lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		input.trigger = e_trigger.idle
+	end
+
 	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
 	ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
 	ray.dir = ray.ori:direction()
@@ -737,7 +705,8 @@ function UI.ImageButton( img_filename, width, height )
 
 	if ib_idx == nil then
 		local tex = lovr.graphics.newTexture( img_filename )
-		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = image_buttons_default_ttl }
+		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(),
+			ttl = image_buttons_default_ttl }
 		table.insert( image_buttons, ib )
 		return -- skip 1 frame
 	end
@@ -757,8 +726,12 @@ function UI.ImageButton( img_filename, width, height )
 	local result = false
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.image_button_border_highlight } )
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
@@ -780,7 +753,10 @@ function UI.Dummy( width, height )
 	UpdateLayout( bbox )
 end
 
-function UI.TabBar( tabs, idx )
+function UI.TabBar( name, tabs, idx )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. name )
+
 	local text_h = font.handle:getHeight()
 	local bbox = {}
 
@@ -802,8 +778,12 @@ function UI.TabBar( tabs, idx )
 		bbox.w = bbox.w + tab_w
 
 		if PointInRect( last_off_x, last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
 			col = colors.tab_bar_hover
-			if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 				idx = i
 				result = true
@@ -831,6 +811,9 @@ function UI.TabBar( tabs, idx )
 end
 
 function UI.Button( text, width, height )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. text )
+
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
 
@@ -854,8 +837,12 @@ function UI.Button( text, width, height )
 	local col = colors.button_bg
 	local cur_window = windows[ #windows ]
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col = colors.button_bg_hover
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
@@ -899,19 +886,22 @@ function UI.TextBox( name, num_chars, buffer )
 	local label_rect = { x = text_rect.x + text_rect.w + margin, y = bbox.y, w = label_w, h = bbox.h }
 
 	if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col1 = colors.textbox_bg_hover
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			osk.visible = true
 			focused_textbox = textbox_state[ tb_idx ]
 		end
 	end
 
-	if focused_textbox and focused_textbox.id == my_id then col2 = colors.textbox_border_focused end
-
 	local str = textbox_state[ tb_idx ].text:sub( 1, num_chars )
 
 	if focused_textbox and focused_textbox.id == my_id then
+		col2 = colors.textbox_border_focused
 		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_chars - 1 )
 	end
 
@@ -935,10 +925,11 @@ end
 
 function UI.ListBox( name, num_rows, max_chars, collection )
 	local cur_window = windows[ #windows ]
-	local lst_idx = FindId( listbox_state, Hash( cur_window.name .. name ) )
+	local my_id = Hash( cur_window.name .. name )
+	local lst_idx = FindId( listbox_state, my_id )
 
 	if lst_idx == nil then
-		local l = { id = Hash( cur_window.name .. name ), scroll = 1, selected_idx = 1 }
+		local l = { id = my_id, scroll = 1, selected_idx = 1 }
 		table.insert( listbox_state, l )
 		return -- skip 1 frame
 	end
@@ -963,11 +954,15 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	if listbox_state[ lst_idx ].scroll > scrollmax then listbox_state[ lst_idx ].scroll = scrollmax end
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		highlight_idx = math.floor( (last_off_y - bbox.y) / (text_h) ) + 1
 		highlight_idx = Clamp( highlight_idx, 1, #collection )
 
 		-- Select
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			listbox_state[ lst_idx ].selected_idx = highlight_idx + listbox_state[ lst_idx ].scroll - 1
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
@@ -1022,6 +1017,9 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 end
 
 function UI.SliderInt( text, v, v_min, v_max, width )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. text )
+
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
 	local char_w = font.handle:getWidth( "W" )
@@ -1046,14 +1044,17 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 	local cur_window = windows[ #windows ]
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col = colors.slider_bg_hover
-		if lovr.headset.isDown( dominant_hand, "trigger" ) then
-			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
-		end
 
-		if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 		end
+	end
+
+	if input.trigger == e_trigger.down and activeID == my_id then
+		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
 	end
 
 	v = Clamp( math.ceil( v ), v_min, v_max )
@@ -1075,6 +1076,9 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 end
 
 function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. text )
+
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
 	local char_w = font.handle:getWidth( "W" )
@@ -1099,14 +1103,17 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	local cur_window = windows[ #windows ]
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col = colors.slider_bg_hover
-		if lovr.headset.isDown( dominant_hand, "trigger" ) then
-			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
-		end
 
-		if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 		end
+	end
+
+	if input.trigger == e_trigger.down and activeID == my_id then
+		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
 	end
 
 	v = Clamp( v, v_min, v_max )
@@ -1144,6 +1151,9 @@ function UI.Label( text )
 end
 
 function UI.CheckBox( text, checked )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. text )
+
 	local char_w = font.handle:getWidth( "W" )
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
@@ -1161,8 +1171,13 @@ function UI.CheckBox( text, checked )
 	local col = colors.check_border
 	local cur_window = windows[ #windows ]
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col = colors.check_border_hover
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end
@@ -1181,6 +1196,9 @@ function UI.CheckBox( text, checked )
 end
 
 function UI.RadioButton( text, checked )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. text )
+
 	local char_w = font.handle:getWidth( "W" )
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
@@ -1198,8 +1216,13 @@ function UI.RadioButton( text, checked )
 	local col = colors.radio_border
 	local cur_window = windows[ #windows ]
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
 		col = colors.radio_border_hover
-		if lovr.headset.wasReleased( dominant_hand, "trigger" ) then
+
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			result = true
 		end

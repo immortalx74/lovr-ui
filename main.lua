@@ -114,7 +114,7 @@ function lovr.draw( pass )
 	end
 
 	UI.Begin( "TabBar window", mat4( -0.9, 1.4, -1 ) )
-	local was_clicked, idx = UI.TabBar( { "first", "second", "third" }, tab_bar_idx )
+	local was_clicked, idx = UI.TabBar( "my tab bar", { "first", "second", "third" }, tab_bar_idx )
 	if was_clicked then
 		tab_bar_idx = idx
 	end
