@@ -26,6 +26,7 @@ e_trigger.pressed = 2
 e_trigger.down = 3
 e_trigger.released = 4
 
+local theme_changed = true
 local activeID = nil
 local hotID = nil
 local dominant_hand = "hand/right"
@@ -51,6 +52,7 @@ local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4(
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
+
 color_themes.dark =
 {
 	text = { 0.8, 0.8, 0.8 },
@@ -84,7 +86,9 @@ color_themes.dark =
 	tab_bar_highlight = { 0.3, 0.3, 1 },
 	progress_bar_bg = { 0.2, 0.2, 0.2 },
 	progress_bar_fill = { 0.3, 0.3, 1 },
-	progress_bar_border = { 0, 0, 0 }
+	progress_bar_border = { 0, 0, 0 },
+	osk_mode_bg = { 0, 0, 0 },
+	osk_highlight = { 1, 1, 1 }
 }
 
 color_themes.light =
@@ -125,6 +129,8 @@ color_themes.light =
 	textbox_border_focused = { 0.000, 0.000, 1.000 },
 	button_bg_click = { 0.120, 0.120, 0.120 },
 	button_border = { 0.000, 0.000, 0.000 },
+	osk_mode_bg = { 0.5, 0.5, 0.5 },
+	osk_highlight = { 0.1, 0.1, 0.1 }
 }
 
 local colors = color_themes.dark
@@ -243,17 +249,14 @@ local function Raycast( pos, dir, transform )
 end
 
 local function DrawRay( pass )
-	pass:setColor( 1, 0, 0 )
-	pass:sphere( ray.pos, .01 )
-
 	if ray.target then
 		pass:setColor( 1, 1, 1 )
 		pass:line( ray.pos, ray.hit and (ray.target * ray.hit) )
 		pass:setColor( 0, 1, 0 )
-		pass:sphere( ray.target * ray.hit, .005 )
+		pass:sphere( ray.target * ray.hit, .004 )
 	else
 		pass:setColor( 1, 1, 1 )
-		pass:line( ray.pos, ray.pos + ray.dir * 100 )
+		pass:line( ray.pos, ray.pos + ray.dir * 10 )
 	end
 end
 
@@ -288,7 +291,117 @@ local function UpdateLayout( bbox )
 	layout.same_line = false
 end
 
+local function GenerateOSKTextures( pass )
+	-- TODO: Fix code repetition
+	for md = 1, 3 do
+		local p = lovr.graphics.getPass( 'render', osk.textures[ md ] )
+		p:setFont( font.handle )
+		p:setDepthTest( nil )
+		p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
+		p:setColor( colors.window_bg )
+		p:fill()
+		p:setColor( colors.window_border )
+		p:plane( mat4( vec3( 320, 160, 0 ), vec3( 640, 320, 0 ) ), "line" )
+
+		local x_off = 0
+		local y_off = 32
+		local count = 1
+
+		for i, v in ipairs( osk.mode[ md ] ) do
+			if i == 31 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				if md == 2 then p:setColor( colors.osk_mode_bg ) end
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "⇧", m )
+			elseif i == 40 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "⌫", m )
+			elseif i == 41 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				if md == 3 then p:setColor( colors.osk_mode_bg ) end
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 22 * ui_scale, 22 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "123?", m )
+			elseif i == 42 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "←", m )
+			elseif i == 43 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "→", m )
+			elseif i == 45 then
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 184, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "̶", m )
+			elseif i == 49 then
+				local m = mat4( vec3( (count * 32) + x_off + 32, y_off, 0 ), vec3( 118, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( "⏎", m )
+			elseif i == 44 or i == 46 or i == 50 then -- skip those
+			else
+				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+				p:setColor( colors.button_bg )
+				p:plane( m, "fill" )
+				p:setColor( colors.button_border )
+				p:plane( m, "line" )
+				m:scale( vec3( 32 * ui_scale, 32 * ui_scale, 0 ) )
+				p:setColor( colors.text )
+				p:text( v, m )
+			end
+
+			x_off = x_off + 32
+			count = count + 1
+
+			if i % 10 == 0 then
+				y_off = y_off + 64
+				x_off = 0
+				count = 1
+			end
+		end
+
+		p:plane( m, "fill" )
+		lovr.graphics.submit( p )
+	end
+end
+
 local function ShowOSK( pass )
+	-- TODO: Make keyboard code independent from textbox code. Other widgets (sliders) could use the keyboard for exact value entry.
 	if not osk.prev_frame_visible then
 		local init_transform = lovr.math.newMat4( lovr.headset.getPose( "head" ) )
 		init_transform:translate( vec3( 0, -0.3, -0.6 ) )
@@ -297,10 +410,9 @@ local function ShowOSK( pass )
 
 	osk.prev_frame_visible = true
 
-	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform,
-		w = 640, h = 320,
-		command_list = {},
+	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
 		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
+
 	table.insert( windows, window )
 
 	local x_off
@@ -315,6 +427,7 @@ local function ShowOSK( pass )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
 				if btn == "shift" then
+					print( window.texture:getWidth() )
 					if osk.cur_mode == 1 or osk.cur_mode == 3 then
 						osk.cur_mode = 2
 					else
@@ -380,7 +493,7 @@ local function ShowOSK( pass )
 
 	-- Highlight hovered button
 	if x_off then
-		pass:setColor( 1, 1, 1 )
+		pass:setColor( colors.osk_highlight )
 		local m = lovr.math.newMat4( window.transform ):translate( vec3( (-352 * ui_scale), 128 * ui_scale, 0.001 ) ) -- 320 + 32, 160 - 32
 
 		-- Space and Return are wider
@@ -423,6 +536,7 @@ end
 
 function UI.SetColor( col_name, color )
 	colors[ col_name ] = color
+	theme_changed = true
 end
 
 function UI.SetColorTheme( theme, copy_from )
@@ -437,6 +551,8 @@ function UI.SetColorTheme( theme, copy_from )
 		end
 		colors = theme
 	end
+
+	theme_changed = true
 end
 
 function UI.GetWindowSize( name )
@@ -494,9 +610,9 @@ function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled 
 	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
 	input.interaction_enabled = (enabled ~= false)
 	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
-	osk.textures[ 1 ] = lovr.graphics.newTexture( root .. "keyboard1.png" )
-	osk.textures[ 2 ] = lovr.graphics.newTexture( root .. "keyboard2.png" )
-	osk.textures[ 3 ] = lovr.graphics.newTexture( root .. "keyboard3.png" )
+	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
+	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
+	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
 end
 
 function UI.NewFrame( main_pass )
@@ -542,6 +658,10 @@ function UI.RenderFrame( main_pass )
 		DrawRay( main_pass )
 	end
 
+	if theme_changed then
+		GenerateOSKTextures( main_pass )
+	end
+
 	table.insert( passes, main_pass )
 	lovr.graphics.submit( passes )
 
@@ -559,6 +679,8 @@ function UI.RenderFrame( main_pass )
 			end
 		end
 	end
+
+	theme_changed = false
 end
 
 function UI.SameLine()
@@ -1042,6 +1164,7 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 	local thumb_w = text_h
 	local col = colors.slider_bg
 	local cur_window = windows[ #windows ]
+	local result = false
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
 		hotID = my_id
@@ -1055,6 +1178,10 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 
 	if input.trigger == e_trigger.down and activeID == my_id then
 		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+	end
+
+	if input.trigger == e_trigger.released and activeID == my_id then
+		result = true
 	end
 
 	v = Clamp( math.ceil( v ), v_min, v_max )
@@ -1072,7 +1199,7 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = colors.slider_thumb } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = colors.text } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = v, bbox = text_value_rect, color = colors.text } )
-	return v
+	return result, v
 end
 
 function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
@@ -1101,6 +1228,7 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	local thumb_w = text_h
 	local col = colors.slider_bg
 	local cur_window = windows[ #windows ]
+	local result = false
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
 		hotID = my_id
@@ -1114,6 +1242,10 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 
 	if input.trigger == e_trigger.down and activeID == my_id then
 		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+	end
+
+	if input.trigger == e_trigger.released and activeID == my_id then
+		result = true
 	end
 
 	v = Clamp( v, v_min, v_max )
@@ -1131,7 +1263,7 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = colors.slider_thumb } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = colors.text } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = string.format( str_fmt, v ), bbox = text_value_rect, color = colors.text } )
-	return v
+	return result, v
 end
 
 function UI.Label( text )

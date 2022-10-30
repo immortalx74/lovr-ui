@@ -64,8 +64,9 @@ function lovr.draw( pass )
 		check1 = not check1
 	end
 	UI.Label( "Hello world in Greek: Γεια σου κόσμε!" )
-	slider_int_val = UI.SliderInt( "SliderInt", slider_int_val, -100, 100, 400 )
-	slider_float_val = UI.SliderFloat( "SliderFloat", slider_float_val, -100, 100, 400, 3 )
+	local s1, s2
+	s1, slider_int_val = UI.SliderInt( "SliderInt", slider_int_val, -100, 100, 400 )
+	s2, slider_float_val = UI.SliderFloat( "SliderFloat", slider_float_val, -100, 100, 400, 3 )
 	UI.Label( "Some list of things:" )
 	local list_clicked, list_selected_idx = UI.ListBox( "Somelistbox", 15, 20, some_list )
 	if list_clicked then
@@ -149,10 +150,13 @@ function lovr.draw( pass )
 	end
 	local val = UI.GetColor( col_list[ col_list_idx ] )
 	if val then
-		val[ 1 ] = UI.SliderFloat( "R", val[ 1 ], 0, 1, 600, 3 )
-		val[ 2 ] = UI.SliderFloat( "G", val[ 2 ], 0, 1, 600, 3 )
-		val[ 3 ] = UI.SliderFloat( "B", val[ 3 ], 0, 1, 600, 3 )
-		UI.SetColor( col_list[ col_list_idx ], { val[ 1 ], val[ 2 ], val[ 3 ] } )
+		local rdown, gdown, bdown
+		r_released, val[ 1 ] = UI.SliderFloat( "R", val[ 1 ], 0, 1, 600, 3 )
+		g_released, val[ 2 ] = UI.SliderFloat( "G", val[ 2 ], 0, 1, 600, 3 )
+		b_released, val[ 3 ] = UI.SliderFloat( "B", val[ 3 ], 0, 1, 600, 3 )
+		if r_released or g_released or b_released then
+			UI.SetColor( col_list[ col_list_idx ], { val[ 1 ], val[ 2 ], val[ 3 ] } )
+		end
 	end
 	if UI.Button( "Print to output" ) then
 		local t = {}
