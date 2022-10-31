@@ -492,6 +492,14 @@ end
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
+function UI.GetScale()
+	return ui_scale
+end
+
+function UI.SetScale( scale )
+	ui_scale = scale
+end
+
 function UI.SetTextBoxText( id, text )
 	local idx = FindId( textbox_state, id )
 	textbox_state[ idx ].text = text

@@ -296,6 +296,24 @@ NOTE: Helper to set a color value
 NOTE: Sets a theme to one of the built-in ones ("dark", "light") if the passed argument is a string. Also accepts a table of colors. If the passed table doesn't contain all of the keys, the rest of them will be copied from the built-in theme of the `copy_from` argument.
 
 ---
+`UI.GetScale()`
+|Argument|Type|Description
+|:---|:---|:---|
+|`none`||
+
+<span style="color:DeepSkyBlue">Returns:</span> `number`, ui scale 
+NOTE: Helper to get the ui scale
+
+---
+`UI.SetScale(scale)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`scale`|number|ui scale
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Helper to set the ui scale
+
+---
 
 **General Info:**
 `UI.Begin()`/`UI.End()` defines a window. Widget function calls placed inside this block, are then part of this window.
