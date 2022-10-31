@@ -51,7 +51,7 @@ local color_themes = {}
 local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle }
-local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1 }
+local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
 
 color_themes.dark =
 {
@@ -401,7 +401,6 @@ local function GenerateOSKTextures( pass )
 end
 
 local function ShowOSK( pass )
-	-- TODO: Make keyboard code independent from textbox code. Other widgets (sliders) could use the keyboard for exact value entry.
 	if not osk.prev_frame_visible then
 		local init_transform = lovr.math.newMat4( lovr.headset.getPose( "head" ) )
 		init_transform:translate( vec3( 0, -0.3, -0.6 ) )
@@ -409,11 +408,12 @@ local function ShowOSK( pass )
 	end
 
 	osk.prev_frame_visible = true
+	osk.last_key = nil
 
 	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
 		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
 
-	table.insert( windows, window )
+	table.insert( windows, 1, window ) -- NOTE: Insert on top. Does it make any difference?
 
 	local x_off
 	local y_off
@@ -421,68 +421,38 @@ local function ShowOSK( pass )
 	if window.id == hovered_window_id then
 		x_off = math.floor( last_off_x / 64 ) + 1
 		y_off = math.floor( (last_off_y) / 64 )
-		if input.trigger == e_trigger.released then
+		if input.trigger == e_trigger.pressed then
 			if focused_textbox then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
 				if btn == "shift" then
-					print( window.texture:getWidth() )
+					osk.last_key = nil
 					if osk.cur_mode == 1 or osk.cur_mode == 3 then
 						osk.cur_mode = 2
 					else
 						osk.cur_mode = 1
 					end
 				elseif btn == "symbol" then
+					osk.last_key = nil
 					if osk.cur_mode == 1 or osk.cur_mode == 2 then
 						osk.cur_mode = 3
 					else
 						osk.cur_mode = 1
 					end
 				elseif btn == "left" then
-					focused_textbox.cursor = focused_textbox.cursor - 1
-					if focused_textbox.cursor < focused_textbox.scroll - 1 then
-						focused_textbox.scroll = focused_textbox.scroll - 1
-						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
-					end
-
-					if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
+					osk.last_key = "left"
 				elseif btn == "right" then
-					focused_textbox.cursor = focused_textbox.cursor + 1
-					if focused_textbox.cursor > focused_textbox.num_chars + focused_textbox.scroll - 1 then
-						focused_textbox.scroll = focused_textbox.scroll + 1
-						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then
-							focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
-						end
-					end
-					if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
+					osk.last_key = "right"
 				elseif btn == "return" then
-					focused_textbox.cursor = focused_textbox.text:len()
-					if focused_textbox.text:len() - focused_textbox.num_chars + 1 > 0 then
-						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
-					end
-					focused_textbox = nil
+					osk.last_key = "return"
 					osk.prev_frame_visible = false
 					osk.visible = false
+					focused_textbox = nil
 				elseif btn == "backspace" then
-					if focused_textbox.cursor > 0 then
-						local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
-						local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
-						focused_textbox.text = s1 .. s2
-						focused_textbox.cursor = focused_textbox.cursor - 1
-						if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars + 1 then
-							focused_textbox.scroll = focused_textbox.scroll - 1
-							if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
-						end
-					end
+					osk.last_key = "backspace"
 				else
-					local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor )
-					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
-					focused_textbox.text = s1 .. btn .. s2
-					focused_textbox.cursor = focused_textbox.cursor + 1
-					if focused_textbox.cursor > focused_textbox.num_chars then
-						focused_textbox.scroll = focused_textbox.scroll + 1
-					end
+					osk.last_key = btn
 				end
 			end
 		end
@@ -522,6 +492,15 @@ end
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
+function UI.SetTextBoxText( id, text )
+	local idx = FindId( textbox_state, id )
+	textbox_state[ idx ].text = text
+	if textbox_state[ idx ].text:len() > textbox_state[ idx ].num_chars then
+		textbox_state[ idx ].scroll = textbox_state[ idx ].text:len() - textbox_state[ idx ].num_chars + 1
+	end
+	textbox_state[ idx ].cursor = textbox_state[ idx ].text:len()
+end
+
 function UI.GetColorNames()
 	local t = {}
 	for i, v in pairs( colors ) do
@@ -603,6 +582,9 @@ function UI.InputInfo()
 
 	caret.counter = caret.counter + 1
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
+	if input.trigger == e_trigger.pressed then
+		activeID = nil
+	end
 end
 
 function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled )
@@ -1006,6 +988,7 @@ function UI.TextBox( name, num_chars, buffer )
 	local cur_window = windows[ #windows ]
 	local text_rect = { x = bbox.x, y = bbox.y, w = bbox.w - margin - label_w, h = bbox.h }
 	local label_rect = { x = text_rect.x + text_rect.w + margin, y = bbox.y, w = label_w, h = bbox.h }
+	local got_focus = false
 
 	if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
 		hotID = my_id
@@ -1017,13 +1000,58 @@ function UI.TextBox( name, num_chars, buffer )
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			osk.visible = true
 			focused_textbox = textbox_state[ tb_idx ]
+			got_focus = true
 		end
 	end
 
 	local str = textbox_state[ tb_idx ].text:sub( 1, num_chars )
+	local buffer_changed = false
 
 	if focused_textbox and focused_textbox.id == my_id then
 		col2 = colors.textbox_border_focused
+		if osk.last_key then
+			if osk.last_key == "left" then
+				focused_textbox.cursor = focused_textbox.cursor - 1
+				if focused_textbox.cursor < focused_textbox.scroll - 1 then
+					focused_textbox.scroll = focused_textbox.scroll - 1
+					if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+				end
+				if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
+			elseif osk.last_key == "right" then
+				focused_textbox.cursor = focused_textbox.cursor + 1
+				if focused_textbox.cursor > focused_textbox.num_chars + focused_textbox.scroll - 1 then
+					focused_textbox.scroll = focused_textbox.scroll + 1
+					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then
+						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
+					end
+				end
+				if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
+			elseif osk.last_key == "backspace" then
+				if focused_textbox.cursor > 0 then
+					buffer_changed = true
+					local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
+					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+					focused_textbox.text = s1 .. s2
+					focused_textbox.cursor = focused_textbox.cursor - 1
+					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars + 1 then
+						focused_textbox.scroll = focused_textbox.scroll - 1
+						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+					end
+				end
+			elseif osk.last_key == "return" then
+				return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
+			else
+				buffer_changed = true
+				local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor )
+				local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+				focused_textbox.text = s1 .. osk.last_key .. s2
+				focused_textbox.cursor = focused_textbox.cursor + 1
+				if focused_textbox.cursor > focused_textbox.num_chars then
+					focused_textbox.scroll = focused_textbox.scroll + 1
+				end
+			end
+
+		end
 		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_chars - 1 )
 	end
 
@@ -1042,7 +1070,7 @@ function UI.TextBox( name, num_chars, buffer )
 				color = colors.text } )
 	end
 
-	return textbox_state[ tb_idx ].text
+	return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
 end
 
 function UI.ListBox( name, num_rows, max_chars, collection )

@@ -49,7 +49,18 @@ function lovr.draw( pass )
 	if UI.ImageButton( "ui/lovrlogo.png" ) then print( "imagebutton" ) end
 	UI.SameLine()
 	UI.Label( "<- An ImageButton" )
-	buf = UI.TextBox( "Name", 6, buf ) -- Mutate original string
+
+	local old_buf = buf
+	local got_focus, buffer_changed, textbox_id
+	got_focus, buffer_changed, textbox_id, buf = UI.TextBox( "Name", 6, buf ) -- Mutate original string
+	if got_focus then
+		print( "got focus" )
+	end
+	if buffer_changed then
+		print( "Old text was: " .. "'" .. old_buf .. "'" .. ", new text is: " .. "'" .. buf .. "'" )
+		-- Do text validation here. If it fails your rules (invalid character, text length too long. etc.) then you can set the text to a 'valid' value as follows:
+		-- UI.SetTextBoxText( textbox_id, "My new text" )
+	end
 	UI.TextBox( "Profession", 20, "" )
 	if UI.Button( "Test", 0, 0 ) then
 		print( buf )

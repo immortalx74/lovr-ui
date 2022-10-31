@@ -59,8 +59,8 @@ NOTE:  if no `width` and/or `height` are provided, the button size will be auto-
 |`num_chars`|number|number of visible characters
 |`buffer`|string|user provided text buffer
 
-<span style="color:DeepSkyBlue">Returns:</span> `string` , the edited text buffer.  
-NOTE: When clicked, an on-screen keyboard will pop-up for text entry. Enter closes the keyboard. To modify the original buffer use this idiom: `buf = UI.TextBox("My textbox", 6, buf)`
+<span style="color:DeepSkyBlue">Returns:</span> `boolean`, `boolean`, `number`, `string` , [1] got focus, [2] buffer changed, [3] ID, [4] modified buffer.  
+NOTE: When clicked, an on-screen keyboard will pop-up for text entry. Enter closes the keyboard. To modify the original buffer assign the 4th return value back to the original buffer variable. The ID returned can be passed in the helper function `UI.SetTextBoxText` to set the desired text after validation. (example in main.lua) 
 
 ---
 `UI.ListBox(name, num_rows, max_chars, collection)`
@@ -199,6 +199,16 @@ NOTE: Places the next widget beside the last one, instead of bellow
 
 <span style="color:DeepSkyBlue">Returns:</span> `number`, `number`, [1] window width, [2] window height  
 NOTE: If no window with this ID was found, return type is `nil`
+
+---
+`UI.SetTextBoxText(id, text)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`id`|number|textbox ID
+|`text`|string|textbox text
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Helper to set the textbox text after validation.
 
 ---
 `UI.SetInteractionEnabled(enabled)`
