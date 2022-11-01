@@ -222,15 +222,16 @@ NOTE: Useful if you want to set interaction on/off programmatically, without pre
 
 ---
 
-`UI.Init(interaction_toggle_device, interaction_toggle_button, enabled)`
+`UI.Init(interaction_toggle_device, interaction_toggle_button, enabled, pointer_rotation)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`interaction_toggle_device` _[opt]_|Device|controller
 |`interaction_toggle_button` _[opt]_|DeviceButton|controller button that toggles interaction on/off
 |`enabled` _[opt]_|boolean|initial state of interaction
+|`pointer_rotation` _[opt]_|number|pointer rotation angle (default value is similar to SteamVR/Oculus).
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: Should be called on `lovr.load()`. Defaults are `hand/left`, `thumbstick`, `true` respectively.
+NOTE: Should be called on `lovr.load()`. Defaults are `hand/left`, `thumbstick`, `true`, `math.pi / 3` respectively.
 
 ---
 `UI.InputInfo()`

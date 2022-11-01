@@ -52,7 +52,8 @@ local image_buttons = {}
 local color_themes = {}
 local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
-local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle }
+local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
+	pointer_rotation = math.pi / 3 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
 
 color_themes.dark =
@@ -593,7 +594,8 @@ function UI.InputInfo()
 
 	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
 	ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
-	ray.dir = ray.ori:direction()
+	local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
+	ray.dir = quat( m ):direction()
 
 	caret.counter = caret.counter + 1
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
@@ -602,10 +604,11 @@ function UI.InputInfo()
 	end
 end
 
-function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled )
+function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled, pointer_rotation )
 	input.interaction_toggle_device = interaction_toggle_device or input.interaction_toggle_device
 	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
 	input.interaction_enabled = (enabled ~= false)
+	input.pointer_rotation = pointer_rotation or input.pointer_rotation
 	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
 	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
 	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
