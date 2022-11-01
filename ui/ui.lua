@@ -32,6 +32,7 @@ local hotID = nil
 local dominant_hand = "hand/right"
 local hovered_window_id = nil
 local focused_textbox = nil
+local focused_slider = nil
 local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
@@ -422,7 +423,7 @@ local function ShowOSK( pass )
 		x_off = math.floor( last_off_x / 64 ) + 1
 		y_off = math.floor( (last_off_y) / 64 )
 		if input.trigger == e_trigger.pressed then
-			if focused_textbox then
+			if focused_textbox or focused_slider then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
@@ -449,6 +450,7 @@ local function ShowOSK( pass )
 					osk.prev_frame_visible = false
 					osk.visible = false
 					focused_textbox = nil
+					focused_slider = nil
 				elseif btn == "backspace" then
 					osk.last_key = "backspace"
 				else
@@ -1195,6 +1197,33 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 		slider_w = width - margin - text_w
 	end
 
+	-- Silently replace with a textbox
+	if focused_slider == my_id then
+		bbox.w = -margin
+		UpdateLayout( bbox )
+		UI.SameLine()
+		local gf, bc, id, txt
+		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * margin)) / char_w, tostring( v ) )
+
+		if bc then
+			if tonumber( txt ) then
+				v = tonumber( txt )
+			end
+			if osk.last_key == "return" then
+				focused_slider = nil
+				focused_textbox = nil
+			end
+			return true, v
+		else
+			return false, v
+		end
+	else -- Remove redundant state. Might not be called ever again
+		local tb_idx = FindId( textbox_state, my_id )
+		if tb_idx then
+			table.remove( textbox_state, tb_idx )
+		end
+	end
+
 	UpdateLayout( bbox )
 
 	local thumb_w = text_h
@@ -1212,17 +1241,23 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 		end
 	end
 
-	if input.trigger == e_trigger.down and activeID == my_id then
-		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
-	end
+	if not lovr.headset.isDown( dominant_hand, "grip" ) then
+		if input.trigger == e_trigger.down and activeID == my_id then
+			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+		end
 
-	if input.trigger == e_trigger.released and activeID == my_id then
-		result = true
-	end
+		if input.trigger == e_trigger.released and activeID == my_id then
+			result = true
+		end
 
-	v = Clamp( math.ceil( v ), v_min, v_max )
-	-- stupid way to turn -0 to 0 ???
-	if v == 0 then v = 0 end
+		v = Clamp( math.ceil( v ), v_min, v_max )
+		-- stupid way to turn -0 to 0 ???
+		if v == 0 then v = 0 end
+	else
+		if input.trigger == e_trigger.pressed and activeID == my_id then
+			focused_slider = my_id
+		end
+	end
 
 	local value_text_w = font.handle:getWidth( v )
 	local text_label_rect = { x = bbox.x + slider_w + margin, y = bbox.y, w = text_w, h = bbox.h }
@@ -1259,6 +1294,35 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 		slider_w = width - margin - text_w
 	end
 
+	-- Silently replace with a textbox
+	if focused_slider == my_id then
+		bbox.w = -margin
+		UpdateLayout( bbox )
+		UI.SameLine()
+		local gf, bc, id, txt
+		num_decimals = num_decimals or 2
+		local str_fmt = "%." .. num_decimals .. "f"
+		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * margin)) / char_w, string.format( str_fmt, tostring( v ) ) )
+
+		if bc then
+			if tonumber( txt ) then
+				v = tonumber( txt )
+			end
+			if osk.last_key == "return" then
+				focused_slider = nil
+				focused_textbox = nil
+			end
+			return true, v
+		else
+			return false, v
+		end
+	else -- Remove redundant state. Might not be called ever again
+		local tb_idx = FindId( textbox_state, my_id )
+		if tb_idx then
+			table.remove( textbox_state, tb_idx )
+		end
+	end
+
 	UpdateLayout( bbox )
 
 	local thumb_w = text_h
@@ -1276,15 +1340,21 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 		end
 	end
 
-	if input.trigger == e_trigger.down and activeID == my_id then
-		v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
-	end
+	if not lovr.headset.isDown( dominant_hand, "grip" ) then
+		if input.trigger == e_trigger.down and activeID == my_id then
+			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+		end
 
-	if input.trigger == e_trigger.released and activeID == my_id then
-		result = true
-	end
+		if input.trigger == e_trigger.released and activeID == my_id then
+			result = true
+		end
 
-	v = Clamp( v, v_min, v_max )
+		v = Clamp( v, v_min, v_max )
+	else
+		if input.trigger == e_trigger.pressed and activeID == my_id then
+			focused_slider = my_id
+		end
+	end
 
 	local value_text_w = font.handle:getWidth( v )
 	local text_label_rect = { x = bbox.x + slider_w + margin, y = bbox.y, w = text_w, h = bbox.h }

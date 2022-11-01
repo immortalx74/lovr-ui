@@ -11,9 +11,10 @@
 
  - Change the dominant hand by pushing the corresponding trigger button.
  - Scroll in ListBox with the Y-axis of the analog stick.
- - Text entry is done by an on-screen keyboard (appears when a TextBox has focus)
+ - Text entry is done by an on-screen keyboard (appears when a TextBox has focus).
+ - Enter an exact value in a slider by holding down grip and pressing trigger.
  - Move windows by pointing at them and holding the grip button.
- - Enable/Disable interaction with the GUI by pressing the Left Thumbstick down (user configurable)
+ - Enable/Disable interaction with the GUI by pressing the Left Thumbstick down (user configurable).
 
 **Widgets:**
 
