@@ -322,7 +322,7 @@ NOTE: Helper to get the ui scale
 |`scale`|number|ui scale
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: Helper to set the ui scale
+NOTE: Helper to set the ui scale. Don't call this every frame (it causes textures to be regenerated)
 
 ---
 

@@ -37,6 +37,7 @@ local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
 local ui_scale = 0.0005
+local new_scale = nil
 local controller_vibrate = false
 local image_buttons_default_ttl = 2
 local font = { handle, w, h, scale = 1 }
@@ -499,7 +500,7 @@ function UI.GetScale()
 end
 
 function UI.SetScale( scale )
-	ui_scale = scale
+	new_scale = scale
 end
 
 function UI.SetTextBoxText( id, text )
@@ -656,10 +657,16 @@ function UI.RenderFrame( main_pass )
 
 	if theme_changed then
 		GenerateOSKTextures( main_pass )
+		theme_changed = false
 	end
 
 	table.insert( passes, main_pass )
 	lovr.graphics.submit( passes )
+
+	if new_scale then
+		ui_scale = new_scale
+	end
+	new_scale = nil
 
 	ClearTable( windows )
 	ClearTable( passes )
@@ -675,8 +682,6 @@ function UI.RenderFrame( main_pass )
 			end
 		end
 	end
-
-	theme_changed = false
 end
 
 function UI.SameLine()
