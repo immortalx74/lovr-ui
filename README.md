@@ -284,7 +284,17 @@ NOTE: Helper to get a color value
 |`col_name`|string|color value
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: Helper to set a color value
+NOTE: Helper to set a color value. Don't call this every frame because it regenerates the keyboard textures. Use `UI.OverrideColor` instead.
+
+---
+`UI.OverrideColor(col_name, color)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`col_name`|string|color key
+|`col_name`|string|color value
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Helper to override a color value.
 
 ---
 `UI.SetColorTheme(theme, copy_from)`

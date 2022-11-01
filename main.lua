@@ -10,6 +10,9 @@ slider_float_val = 0
 window3_open = false
 tab_bar_idx = 1
 col_list_idx = 1
+progress_value = 0
+accumulator = 0
+time_now = 0
 
 -- Override only some colors
 custom_theme =
@@ -31,8 +34,14 @@ function lovr.load()
 	col_list = UI.GetColorNames()
 end
 
-function lovr.update()
+function lovr.update( dt )
 	UI.InputInfo()
+	accumulator = accumulator + (10 * dt)
+	progress_value = math.floor( accumulator )
+	if progress_value > 70 then
+		progress_value = 0
+		accumulator = 0
+	end
 end
 
 function lovr.draw( pass )
@@ -100,7 +109,7 @@ function lovr.draw( pass )
 	UI.TextBox( "Location", 20, "" )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
 	UI.Label( "Energy bill increase:" )
-	UI.ProgressBar( 50, 400 )
+	UI.ProgressBar( progress_value, 400 )
 	UI.Button( "Forced height", 0, 200 )
 	UI.Button( "Forced width", 400 )
 
@@ -148,6 +157,26 @@ function lovr.draw( pass )
 	-- color tweaker test
 	UI.Begin( "Color editor window", mat4( 0.5, 1.2, -1.3 ) )
 	UI.Label( "Color editor" )
+	local button_bg_color = UI.GetColor( "button_bg" )
+	local text_color = UI.GetColor( "text" )
+
+	UI.OverrideColor( "text", { 0, 0, 0 } )
+	UI.OverrideColor( "button_bg", { 1, 0, 0 } )
+	UI.Button( "Override" )
+	UI.SameLine()
+
+	UI.OverrideColor( "text", { 0, 0, 0 } )
+	UI.OverrideColor( "button_bg", { 0, 1, 0 } )
+	UI.Button( "some" )
+	UI.SameLine()
+
+	UI.OverrideColor( "text", { 1, 1, 1 } )
+	UI.OverrideColor( "button_bg", { 0, 0, 1 } )
+	UI.Button( "colors" )
+
+	UI.OverrideColor( "button_bg", button_bg_color )
+	UI.OverrideColor( "text", text_color )
+	UI.Label( "Set theme:" )
 	if UI.Button( "Dark" ) then
 		UI.SetColorTheme( "dark" )
 	end
@@ -159,6 +188,7 @@ function lovr.draw( pass )
 	if UI.Button( "Custom..." ) then
 		UI.SetColorTheme( custom_theme, "dark" )
 	end
+
 	local val = UI.GetColor( col_list[ col_list_idx ] )
 	if val then
 		local rdown, gdown, bdown

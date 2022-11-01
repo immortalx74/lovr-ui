@@ -528,6 +528,10 @@ function UI.SetColor( col_name, color )
 	theme_changed = true
 end
 
+function UI.OverrideColor( col_name, color )
+	colors[ col_name ] = color
+end
+
 function UI.SetColorTheme( theme, copy_from )
 	if type( theme ) == "string" then
 		colors = color_themes[ theme ]
