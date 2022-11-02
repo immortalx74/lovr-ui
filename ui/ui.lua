@@ -834,7 +834,7 @@ function UI.ImageButton( img_filename, width, height )
 		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(),
 			ttl = image_buttons_default_ttl }
 		table.insert( image_buttons, ib )
-		return -- skip 1 frame
+		ib_idx = #image_buttons
 	end
 
 	local ib = image_buttons[ ib_idx ]
@@ -989,7 +989,7 @@ function UI.TextBox( name, num_chars, buffer )
 	if tb_idx == nil then
 		local tb = { id = my_id, text = buffer, scroll = 1, cursor = buffer:len(), num_chars = num_chars }
 		table.insert( textbox_state, tb )
-		return -- skip 1 frame
+		tb_idx = #textbox_state
 	end
 
 	local text_h = font.handle:getHeight()
@@ -1103,7 +1103,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	if lst_idx == nil then
 		local l = { id = my_id, scroll = 1, selected_idx = 1 }
 		table.insert( listbox_state, l )
-		return -- skip 1 frame
+		lst_idx = #listbox_state
 	end
 
 	local char_w = font.handle:getWidth( "W" )
