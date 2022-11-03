@@ -126,7 +126,7 @@ function lovr.draw( pass )
 		UI.Begin( "ThirdWindow", lh_pose )
 		UI.ImageButton( "ui/lovrlogo.png", 32, 32 )
 		UI.Label( "Operating System: " .. lovr.system.getOS() )
-		UI.Label( "User Directory: " .. lovr.filesystem.getUserDirectory() )
+		UI.Label( "User Directory: " .. (lovr.filesystem.getUserDirectory() or 'N/A') )
 		UI.Label( "Average Delta: " .. string.format( "%.6f", lovr.timer.getAverageDelta() ) )
 		if UI.Button( "Close Me" ) then
 			window3_open = false
