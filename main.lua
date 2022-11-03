@@ -214,4 +214,5 @@ function lovr.draw( pass )
 	UI.End( pass )
 
 	UI.RenderFrame( pass )
+	return true
 end
