@@ -30,6 +30,7 @@
  - TabBar
  - Dummy
  - ProgressBar
+ - WhiteBoard
 
 ---
 `UI.Button(text, width, height)`
@@ -51,6 +52,18 @@ NOTE:  if no `width` and/or `height` are provided, the button size will be auto-
 |`height`|number|image height in pixels
 
 <span style="color:DeepSkyBlue">Returns:</span> `boolean` , true when clicked.  
+
+---
+`UI.WhiteBoard(name, width, height)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`name`|string|whiteboard ID
+|`width`|number|width in pixels
+|`height`|number|height in pixels
+
+<span style="color:DeepSkyBlue">Returns:</span> `Pass`, `boolean`, `boolean`, `boolean`, `boolean`, `number`, `number`, [1] Pass object, [2] clicked, [3] down, [4] released, [5] hovered, [6] X, [7] Y  
+NOTE: General purpose widget for custom drawing/interaction. The returned Pass can be used to do regular LÖVR draw-commands  
+like plane, circle, text, etc. X and Y are the local 2D coordinates of the pointer (0,0 is top,left)
 
 ---
 `UI.TextBox(name, num_chars, buffer)`

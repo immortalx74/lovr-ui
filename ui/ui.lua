@@ -40,6 +40,7 @@ local ui_scale = 0.0005
 local new_scale = nil
 local controller_vibrate = false
 local image_buttons_default_ttl = 2
+local whiteboards_default_ttl = 2
 local font = { handle, w, h, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
@@ -49,6 +50,7 @@ local windows = {}
 local passes = {}
 local textures = {}
 local image_buttons = {}
+local whiteboards = {}
 local color_themes = {}
 local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
@@ -173,6 +175,17 @@ local function Clamp( n, n_min, n_max )
 	end
 
 	return n
+end
+
+local function GetLineCount( str )
+	-- https://stackoverflow.com/questions/24690910/how-to-get-lines-count-in-string/70137660#70137660
+	local lines = 1
+	for i = 1, #str do
+		local c = str:sub( i, i )
+		if c == '\n' then lines = lines + 1 end
+	end
+
+	return lines
 end
 
 local function FindId( t, id )
@@ -400,7 +413,7 @@ local function GenerateOSKTextures()
 		end
 
 		p:plane( m, "fill" )
-		table.insert(passes, p)
+		table.insert( passes, p )
 	end
 	return passes
 end
@@ -661,8 +674,8 @@ function UI.RenderFrame( main_pass )
 	end
 
 	if theme_changed then
-		for i, p in ipairs(GenerateOSKTextures()) do
-			table.insert(passes, p)
+		for i, p in ipairs( GenerateOSKTextures() ) do
+			table.insert( passes, p )
 		end
 		theme_changed = false
 	end
@@ -685,7 +698,19 @@ function UI.RenderFrame( main_pass )
 			image_buttons[ i ].ttl = image_buttons[ i ].ttl - 1
 			if image_buttons[ i ].ttl <= 0 then
 				image_buttons[ i ].texture:release()
+				image_buttons[ i ].texture = nil
 				table.remove( image_buttons, i )
+			end
+		end
+	end
+
+	if #whiteboards > 0 then
+		for i = #whiteboards, 1, -1 do
+			whiteboards[ i ].ttl = whiteboards[ i ].ttl - 1
+			if whiteboards[ i ].ttl <= 0 then
+				whiteboards[ i ].texture:release()
+				whiteboards[ i ].texture = nil
+				table.remove( whiteboards, i )
 			end
 		end
 	end
@@ -872,6 +897,59 @@ function UI.ImageButton( img_filename, width, height )
 	return result
 end
 
+function UI.WhiteBoard( name, width, height )
+	local cur_window = windows[ #windows ]
+	local my_id = Hash( cur_window.name .. name )
+	local wb_idx = FindId( whiteboards, my_id )
+
+	if wb_idx == nil then
+		local tex = lovr.graphics.newTexture( width, height, { mipmaps = false } )
+		local wb = { id = my_id, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = whiteboards_default_ttl }
+		table.insert( whiteboards, wb )
+		wb_idx = #whiteboards
+	end
+
+	local wb = whiteboards[ wb_idx ]
+	wb.ttl = whiteboards_default_ttl
+
+	local bbox = {}
+	if layout.same_line then
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = wb.w, h = wb.h }
+	else
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = wb.w, h = wb.h }
+	end
+
+	UpdateLayout( bbox )
+
+	local clicked = false
+	local down = false
+	local released = false
+	local hovered = false
+	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+		hotID = my_id
+		hovered = true
+		if input.trigger == e_trigger.pressed then
+			activeID = my_id
+			clicked = true
+		end
+		if input.trigger == e_trigger.down and activeID == my_id then
+			down = true
+		end
+		if input.trigger == e_trigger.released and hotID == activeID then
+			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			released = true
+		end
+	end
+
+	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
+
+	local p = lovr.graphics.getPass( "render", wb.texture )
+	p:setDepthTest( nil )
+	p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
+	table.insert( passes, p )
+	return p, clicked, down, released, hovered, last_off_x - bbox.x, last_off_y - bbox.y
+end
+
 function UI.Dummy( width, height )
 	local bbox = {}
 	if layout.same_line then
@@ -946,12 +1024,13 @@ function UI.Button( text, width, height )
 
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
+	local num_lines = GetLineCount( text )
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + text_w, h = (2 * margin) + text_h }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + text_h }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
 	end
 
 	if width and type( width ) == "number" and width > bbox.w then
@@ -1391,12 +1470,13 @@ end
 function UI.Label( text )
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
+	local num_lines = GetLineCount( text )
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_w, h = (2 * margin) + text_h }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_w, h = (2 * margin) + (num_lines * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_w, h = (2 * margin) + text_h }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_w, h = (2 * margin) + (num_lines * text_h) }
 	end
 
 	UpdateLayout( bbox )

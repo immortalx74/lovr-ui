@@ -1,3 +1,6 @@
+-- NOTE: This demo app is currently completely unstructured, crude and lacks comments.
+-- This will be addressed. For the time being it's a testbed during development.
+
 UI = require "ui/ui"
 buf = "John"
 win2pos = lovr.math.newMat4( 0.1, 1.3, -1.3 )
@@ -12,7 +15,23 @@ tab_bar_idx = 1
 col_list_idx = 1
 progress_value = 0
 accumulator = 0
-time_now = 0
+planes = { m = {}, col = {} }
+plane_frames = 0
+amplitude = 100
+frequency = 0.1
+zoom = 1
+
+local x, y, a, c1, c2, c3
+for i = 1, 10 do
+	x = lovr.math.random( 0, 500 )
+	y = lovr.math.random( 0, 300 )
+	a = lovr.math.random( 0, math.pi * 2 )
+	c1 = lovr.math.random()
+	c2 = lovr.math.random()
+	c3 = lovr.math.random()
+	table.insert( planes.m, lovr.math.newMat4( vec3( x, y, 0 ), vec3( 100 ), quat( a, 0, 0, 1 ) ) )
+	table.insert( planes.col, { c1, c2, c3 } )
+end
 
 -- Override only some colors
 custom_theme =
@@ -41,6 +60,23 @@ function lovr.update( dt )
 	if progress_value > 70 then
 		progress_value = 0
 		accumulator = 0
+	end
+
+	if plane_frames < 10 then
+		plane_frames = plane_frames + 1
+	else
+		plane_frames = 0
+		local x, y, a, c1, c2, c3
+		for i = 1, 10 do
+			x = lovr.math.random( 0, 500 )
+			y = lovr.math.random( 0, 300 )
+			a = lovr.math.random( 0, math.pi * 2 )
+			c1 = lovr.math.random()
+			c2 = lovr.math.random()
+			c3 = lovr.math.random()
+			planes.m[ i ]:set( vec3( x, y, 0 ), vec3( zoom * 100 ), quat( a, 0, 0, 1 ) )
+			planes.col[ i ] = { c1, c2, c3 }
+		end
 	end
 end
 
@@ -108,6 +144,52 @@ function lovr.draw( pass )
 	UI.Begin( "SecondWindow", win2pos )
 	UI.TextBox( "Location", 20, "" )
 	if UI.Button( "AhOh" ) then print( UI.GetWindowSize( "FirstWindow" ) ) end
+
+	-- whiteboard 1
+	UI.Label( "Click & drag R/L to zoom in/out:" )
+	local ps, clicked, down, released, hovered, lx, ly = UI.WhiteBoard( "WhiteBoard1", 500, 300 )
+	ps:setColor( 0, 0, 0 )
+	ps:fill()
+
+	if down then
+		zoom = (lx * 0.01)
+	end
+
+	for i = 1, 10 do
+		ps:setColor( planes.col[ i ] )
+		ps:plane( planes.m[ i ] )
+	end
+
+	-- whiteboard 2
+	UI.Label( "Use the sliders or \nclick & drag on waveform:" )
+	local ps, clicked, down, released, hovered, lx, ly = UI.WhiteBoard( "WhiteBoard2", 500, 300 )
+	if down then
+		-- amplitude = -(ly / 2)
+		amplitude = (150 * ly) / 300
+		frequency = (0.2 * lx) / 500
+	end
+	if hovered then
+		ps:setColor( 0.1, 0, 0.2 )
+	else
+		ps:setColor( 0, 0, 0 )
+	end
+	ps:fill()
+	ps:setColor( 1, 1, 1 )
+
+	local xx = 0
+	local yy = 0
+	local y = 150
+
+	for i = 1, 500 do
+		yy = y + (amplitude * math.sin( frequency * xx ))
+		ps:points( xx, yy, 0 )
+		xx = xx + 1
+	end
+
+	local a_released, f_released
+	a_released, amplitude = UI.SliderFloat( "Amplitude", amplitude, 0, 150, 500 )
+	f_released, frequency = UI.SliderFloat( "Frequency", frequency, 0, 0.2, 500 )
+
 	UI.Label( "Energy bill increase:" )
 	UI.ProgressBar( progress_value, 400 )
 	UI.Button( "Forced height", 0, 200 )
