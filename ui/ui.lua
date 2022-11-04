@@ -57,6 +57,7 @@ local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, tota
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
 	pointer_rotation = math.pi / 3 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
+local clamp_sampler = lovr.graphics.newSampler({wrap = 'clamp'})
 
 color_themes.dark =
 {
@@ -784,6 +785,7 @@ function UI.End( main_pass )
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, -v.bbox.h, 0 ) )
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:setMaterial( v.texture )
+			cur_window.pass:setSampler(clamp_sampler)
 			cur_window.pass:plane( m, "fill" )
 			cur_window.pass:setMaterial()
 			cur_window.pass:setColor( 1, 1, 1 )
