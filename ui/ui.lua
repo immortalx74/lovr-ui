@@ -294,8 +294,9 @@ local function UpdateLayout( bbox )
 	layout.same_line = false
 end
 
-local function GenerateOSKTextures( pass )
+local function GenerateOSKTextures()
 	-- TODO: Fix code repetition
+	local passes = {}
 	for md = 1, 3 do
 		local p = lovr.graphics.getPass( 'render', osk.textures[ md ] )
 		p:setFont( font.handle )
@@ -399,8 +400,9 @@ local function GenerateOSKTextures( pass )
 		end
 
 		p:plane( m, "fill" )
-		lovr.graphics.submit( p )
+		table.insert(passes, p)
 	end
+	return passes
 end
 
 local function ShowOSK( pass )
@@ -659,7 +661,9 @@ function UI.RenderFrame( main_pass )
 	end
 
 	if theme_changed then
-		GenerateOSKTextures( main_pass )
+		for i, p in ipairs(GenerateOSKTextures()) do
+			table.insert(passes, p)
+		end
 		theme_changed = false
 	end
 
