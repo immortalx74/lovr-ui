@@ -19,6 +19,7 @@
 local UI = {}
 
 local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
+local utf8 = require "utf8"
 
 local e_trigger = {}
 e_trigger.idle = 1
@@ -57,7 +58,7 @@ local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, tota
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
 	pointer_rotation = math.pi / 3 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
-local clamp_sampler = lovr.graphics.newSampler({wrap = 'clamp'})
+local clamp_sampler = lovr.graphics.newSampler( { wrap = 'clamp' } )
 
 color_themes.dark =
 {
@@ -785,7 +786,7 @@ function UI.End( main_pass )
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, -v.bbox.h, 0 ) )
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:setMaterial( v.texture )
-			cur_window.pass:setSampler(clamp_sampler)
+			cur_window.pass:setSampler( clamp_sampler )
 			cur_window.pass:plane( m, "fill" )
 			cur_window.pass:setMaterial()
 			cur_window.pass:setColor( 1, 1, 1 )
@@ -1264,9 +1265,22 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	end
 
 	for i = lst_scroll, last do
-		local str = collection[ i ]:sub( 1, max_chars )
+		local str = collection[ i ]
+		local num_chars = utf8.len( str )
+		local num_bytes = utf8.offset( str, num_chars, 1 )
+
+		if num_chars > max_chars then
+			if num_chars ~= num_bytes then
+				local count = utf8.offset( str, max_chars, 1 )
+				str = str:sub( 1, count + 1 )
+			else
+				str = str:sub( 1, max_chars )
+			end
+		end
+
+		local item_w = font.handle:getWidth( str )
 		table.insert( windows[ #windows ].command_list,
-			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = (str:len() * char_w) + margin, h = text_h }, color = colors.text } )
+			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = item_w + margin, h = text_h }, color = colors.text } )
 		y_offset = y_offset + text_h
 	end
 
