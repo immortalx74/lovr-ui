@@ -21,6 +21,28 @@ amplitude = 100
 frequency = 0.1
 zoom = 1
 
+-- Bezier example adapted from http://jsfiddle.net/zj68t53f/20/
+function Bezier( t, p0, p1, p2, p3 )
+	local cX = 3 * (p1.x - p0.x)
+	local bX = 3 * (p2.x - p1.x) - cX
+	local aX = p3.x - p0.x - cX - bX
+
+	local cY = 3 * (p1.y - p0.y)
+	local bY = 3 * (p2.y - p1.y) - cY
+	local aY = p3.y - p0.y - cY - bY
+
+	local x = (aX * math.pow( t, 3 )) + (bX * math.pow( t, 2 )) + (cX * t) + p0.x
+	local y = (aY * math.pow( t, 3 )) + (bY * math.pow( t, 2 )) + (cY * t) + p0.y
+
+	return { x = x, y = y }
+end
+
+local accuracy = 0.01
+local p0 = { x = 30, y = 30 }
+local p1 = { x = 120, y = 100 }
+local p2 = { x = 150, y = 430 }
+local p3 = { x = 400, y = 300 }
+
 local x, y, a, c1, c2, c3
 for i = 1, 10 do
 	x = lovr.math.random( 0, 500 )
@@ -189,6 +211,47 @@ function lovr.draw( pass )
 	local a_released, f_released
 	a_released, amplitude = UI.SliderFloat( "Amplitude", amplitude, 0, 150, 500 )
 	f_released, frequency = UI.SliderFloat( "Frequency", frequency, 0, 0.2, 500 )
+
+	-- whiteboard 3
+	local ps, clicked, down, released, hovered, lx, ly = UI.WhiteBoard( "WhiteBoard3", 500, 500 )
+	ps:setColor( 0, 0, 0 )
+	ps:fill()
+
+	ps:setColor( 1, 1, 0 )
+	local startx = p0.x
+	local starty = p0.y
+
+	for i = 0, 1, accuracy do
+		local p = Bezier( i, p0, p1, p2, p3 )
+		ps:line( startx, starty, 0, p.x, p.y, 0 )
+		startx = p.x
+		starty = p.y
+	end
+
+	ps:setColor( 0.15, 0.15, 0.15 )
+	ps:line( p0.x, p0.y, 0, p1.x, p1.y, 0, p2.x, p2.y, 0, p3.x, p3.y, 0 )
+
+	ps:setColor( 1, 0, 1 )
+	ps:plane( p0.x, p0.y, 0, 20 )
+	ps:setColor( 0, 1, 1 )
+	ps:plane( p1.x, p1.y, 0, 20 )
+	ps:plane( p2.x, p2.y, 0, 20 )
+	ps:setColor( 1, 0, 1 )
+	ps:plane( p3.x, p3.y, 0, 20 )
+
+	local r
+	r, p0.x = UI.SliderFloat( "p0.x", p0.x, 0, 500 );
+	UI.SameLine();
+	r, p0.y = UI.SliderFloat( "p0.y", p0.y, 0, 500 )
+	r, p1.x = UI.SliderFloat( "p1.x", p1.x, 0, 500 );
+	UI.SameLine();
+	r, p1.y = UI.SliderFloat( "p1.y", p1.y, 0, 500 )
+	r, p2.x = UI.SliderFloat( "p2.x", p2.x, 0, 500 );
+	UI.SameLine();
+	r, p2.y = UI.SliderFloat( "p2.y", p2.y, 0, 500 )
+	r, p3.x = UI.SliderFloat( "p3.x", p3.x, 0, 500 );
+	UI.SameLine();
+	r, p3.y = UI.SliderFloat( "p3.y", p3.y, 0, 500 )
 
 	UI.Label( "Energy bill increase:" )
 	UI.ProgressBar( progress_value, 400 )

@@ -54,7 +54,7 @@ local image_buttons = {}
 local whiteboards = {}
 local color_themes = {}
 local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
-local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
+local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
 	pointer_rotation = math.pi / 3 }
 local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
@@ -279,13 +279,19 @@ local function DrawRay( pass )
 end
 
 local function ResetLayout()
-	layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false }
+	layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
 end
 
 local function UpdateLayout( bbox )
 	-- Update row height
 	if layout.same_line then
 		if bbox.h > layout.row_h then
+			layout.row_h = bbox.h
+		end
+	elseif layout.same_column then
+		if bbox.h + layout.prev_h + margin < layout.row_h then
+			layout.row_h = layout.row_h - layout.prev_h - margin
+		else
 			layout.row_h = bbox.h
 		end
 	else
@@ -307,6 +313,7 @@ local function UpdateLayout( bbox )
 	layout.prev_w = bbox.w
 	layout.prev_h = bbox.h
 	layout.same_line = false
+	layout.same_column = false
 end
 
 local function GenerateOSKTextures()
@@ -722,6 +729,10 @@ function UI.SameLine()
 	layout.same_line = true
 end
 
+function UI.SameColumn()
+	layout.same_column = true
+end
+
 function UI.Begin( name, transform )
 	local window = { id = Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false }
 	table.insert( windows, window )
@@ -1032,6 +1043,8 @@ function UI.Button( text, width, height )
 	local bbox = {}
 	if layout.same_line then
 		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
+	elseif layout.same_column then
+		bbox = { x = layout.prev_x, y = layout.prev_y + layout.prev_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
 	else
 		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
 	end
