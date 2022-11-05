@@ -53,6 +53,7 @@ local textures = {}
 local image_buttons = {}
 local whiteboards = {}
 local color_themes = {}
+local texture_flags = { mipmaps = true, usage = { 'sample', 'render', 'transfer' } }
 local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
@@ -320,7 +321,7 @@ local function GenerateOSKTextures()
 	-- TODO: Fix code repetition
 	local passes = {}
 	for md = 1, 3 do
-		local p = lovr.graphics.getPass( 'render', osk.textures[ md ] )
+		local p = lovr.graphics.getPass( 'render', { osk.textures[ md ], mipmap = true } )
 		p:setFont( font.handle )
 		p:setDepthTest( nil )
 		p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
@@ -634,9 +635,9 @@ function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled,
 	input.interaction_enabled = (enabled ~= false)
 	input.pointer_rotation = pointer_rotation or input.pointer_rotation
 	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
-	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
-	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
-	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, { mipmaps = false } )
+	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
+	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
+	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
 end
 
 function UI.NewFrame( main_pass )
@@ -752,18 +753,18 @@ function UI.End( main_pass )
 			textures[ idx ].texture:release()
 			table.remove( textures, idx )
 			local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-				texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, { mipmaps = false } ), delete = true }
+				texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags), delete = true }
 			cur_window.texture = entry.texture
 			table.insert( textures, entry )
 		end
 	else
 		local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-			texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, { mipmaps = false } ) }
+			texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags) }
 		cur_window.texture = entry.texture
 		table.insert( textures, entry )
 	end
 
-	cur_window.pass = lovr.graphics.getPass( 'render', cur_window.texture )
+	cur_window.pass = lovr.graphics.getPass( 'render', { cur_window.texture, mipmap = true } )
 	cur_window.pass:setFont( font.handle )
 	cur_window.pass:setDepthTest( nil )
 	cur_window.pass:setProjection( 1, mat4():orthographic( cur_window.pass:getDimensions() ) )
