@@ -19,7 +19,6 @@
 local UI = {}
 
 local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
-local utf8 = require "utf8"
 
 local e_trigger = {}
 e_trigger.idle = 1
@@ -42,6 +41,7 @@ local new_scale = nil
 local controller_vibrate = false
 local image_buttons_default_ttl = 2
 local whiteboards_default_ttl = 2
+local utf8 = {}
 local font = { handle, w, h, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
@@ -518,6 +518,122 @@ local function ShowOSK( pass )
 	pass:setMaterial()
 end
 
+-- Partially embeded functions from https://github.com/meepen/Lua-5.1-UTF-8
+-- License: Creative Commons Zero v1.0 Universal
+function utf8.strRelToAbs( str, ... )
+	local args = { ... }
+
+	for k, v in ipairs( args ) do
+		v = v > 0 and v or #str + v + 1
+		if v < 1 or v > #str then
+			error( "bad index to string (out of range)", 3 )
+		end
+		args[ k ] = v
+	end
+
+	return unpack( args )
+end
+
+function utf8.decode( str, startPos )
+	startPos = utf8.strRelToAbs( str, startPos or 1 )
+	local b1 = str:byte( startPos, startPos )
+
+	-- Single-byte sequence
+	if b1 < 0x80 then
+		return startPos, startPos
+	end
+
+	-- Validate first byte of multi-byte sequence
+	if b1 > 0xF4 or b1 < 0xC2 then
+		return nil
+	end
+
+	-- Get 'supposed' amount of continuation bytes from primary byte
+	local contByteCount = b1 >= 0xF0 and 3 or
+		b1 >= 0xE0 and 2 or
+		b1 >= 0xC0 and 1
+
+	local endPos = startPos + contByteCount
+
+	-- Validate our continuation bytes
+	for _, bX in ipairs { str:byte( startPos + 1, endPos ) } do
+
+		if bit.band( bX, 0xC0 ) ~= 0x80 then
+			return nil
+		end
+	end
+
+	return startPos, endPos
+end
+
+function utf8.len( str, startPos, endPos )
+	if str == "" then return 0 end
+	startPos, endPos = utf8.strRelToAbs( str, startPos or 1, endPos or -1 )
+	local len = 0
+
+	repeat
+		local seqStartPos, seqEndPos = utf8.decode( str, startPos )
+
+		-- Hit an invalid sequence?
+		if not seqStartPos then
+			return false, startPos
+		end
+
+		-- Increment current string pointer
+		startPos = seqEndPos + 1
+
+		-- Increment length
+		len = len + 1
+	until seqEndPos >= endPos
+
+	return len
+end
+
+function utf8.offset( str, n, startPos )
+	startPos = utf8.strRelToAbs( str, startPos or (n >= 0 and 1) or #str )
+
+	-- Find the beginning of the sequence over startPos
+	if n == 0 then
+
+		for i = startPos, 1, -1 do
+			local seqStartPos, seqEndPos = decode( str, i )
+			if seqStartPos then
+				return seqStartPos
+			end
+		end
+		return nil
+	end
+
+	if not utf8.decode( str, startPos ) then
+		error( "initial position is not beginning of a valid sequence", 2 )
+	end
+
+	local itStart, itEnd, itStep = nil, nil, nil
+
+	if n > 0 then -- Find the beginning of the n'th sequence forwards
+		itStart = startPos
+		itEnd = #str
+		itStep = 1
+	else -- Find the beginning of the n'th sequence backwards
+		n = -n
+		itStart = startPos
+		itEnd = 1
+		itStep = -1
+	end
+
+	for i = itStart, itEnd, itStep do
+		local seqStartPos, seqEndPos = utf8.decode( str, i )
+		if seqStartPos then
+			n = n - 1
+			if n == 0 then
+				return seqStartPos
+			end
+		end
+	end
+
+	return nil
+end
+
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
@@ -635,9 +751,9 @@ function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled,
 	input.interaction_enabled = (enabled ~= false)
 	input.pointer_rotation = pointer_rotation or input.pointer_rotation
 	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
-	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
-	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
-	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags)
+	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
 end
 
 function UI.NewFrame( main_pass )
@@ -753,13 +869,13 @@ function UI.End( main_pass )
 			textures[ idx ].texture:release()
 			table.remove( textures, idx )
 			local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-				texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags), delete = true }
+				texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags ), delete = true }
 			cur_window.texture = entry.texture
 			table.insert( textures, entry )
 		end
 	else
 		local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-			texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags) }
+			texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags ) }
 		cur_window.texture = entry.texture
 		table.insert( textures, entry )
 	end
@@ -1081,13 +1197,17 @@ function UI.Button( text, width, height )
 	return result
 end
 
-function UI.TextBox( name, num_chars, buffer )
+function UI.TextBox( name, num_visible_chars, buffer )
 	local cur_window = windows[ #windows ]
 	local my_id = Hash( cur_window.name .. name )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
-		local tb = { id = my_id, text = buffer, scroll = 1, cursor = buffer:len(), num_chars = num_chars }
+		local scrl = 1
+		if buffer:len() > num_visible_chars then
+			scrl = buffer:len() - num_visible_chars + 1
+		end
+		local tb = { id = my_id, text = buffer, scroll = scrl, cursor = buffer:len(), num_visible_chars = num_visible_chars }
 		table.insert( textbox_state, tb )
 		tb_idx = #textbox_state
 	end
@@ -1098,9 +1218,9 @@ function UI.TextBox( name, num_chars, buffer )
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (4 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (4 * margin) + (num_visible_chars * char_w) + label_w, h = (2 * margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (4 * margin) + (num_chars * char_w) + label_w, h = (2 * margin) + text_h }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (4 * margin) + (num_visible_chars * char_w) + label_w, h = (2 * margin) + text_h }
 	end
 
 	UpdateLayout( bbox )
@@ -1122,11 +1242,16 @@ function UI.TextBox( name, num_chars, buffer )
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			osk.visible = true
 			focused_textbox = textbox_state[ tb_idx ]
+			focused_textbox.cursor = focused_textbox.text:len()
+			focused_textbox.scroll = 1
+			if focused_textbox.text:len() > num_visible_chars then
+				focused_textbox.scroll = focused_textbox.text:len() - num_visible_chars + 1
+			end
 			got_focus = true
 		end
 	end
 
-	local str = textbox_state[ tb_idx ].text:sub( 1, num_chars )
+	local str = textbox_state[ tb_idx ].text:sub( 1, num_visible_chars )
 	local buffer_changed = false
 
 	if focused_textbox and focused_textbox.id == my_id then
@@ -1141,10 +1266,10 @@ function UI.TextBox( name, num_chars, buffer )
 				if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
 			elseif osk.last_key == "right" then
 				focused_textbox.cursor = focused_textbox.cursor + 1
-				if focused_textbox.cursor > focused_textbox.num_chars + focused_textbox.scroll - 1 then
+				if focused_textbox.cursor > focused_textbox.num_visible_chars + focused_textbox.scroll - 1 then
 					focused_textbox.scroll = focused_textbox.scroll + 1
-					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars then
-						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_chars + 1
+					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_visible_chars then
+						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_visible_chars + 1
 					end
 				end
 				if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
@@ -1155,7 +1280,7 @@ function UI.TextBox( name, num_chars, buffer )
 					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
 					focused_textbox.text = s1 .. s2
 					focused_textbox.cursor = focused_textbox.cursor - 1
-					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_chars + 1 then
+					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_visible_chars + 1 then
 						focused_textbox.scroll = focused_textbox.scroll - 1
 						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
 					end
@@ -1168,13 +1293,13 @@ function UI.TextBox( name, num_chars, buffer )
 				local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
 				focused_textbox.text = s1 .. osk.last_key .. s2
 				focused_textbox.cursor = focused_textbox.cursor + 1
-				if focused_textbox.cursor > focused_textbox.num_chars then
+				if focused_textbox.cursor > focused_textbox.num_visible_chars then
 					focused_textbox.scroll = focused_textbox.scroll + 1
 				end
 			end
 
 		end
-		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_chars - 1 )
+		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
 	end
 
 	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
@@ -1195,7 +1320,7 @@ function UI.TextBox( name, num_chars, buffer )
 	return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
 end
 
-function UI.ListBox( name, num_rows, max_chars, collection )
+function UI.ListBox( name, num_visible_rows, num_visible_chars, collection )
 	local cur_window = windows[ #windows ]
 	local my_id = Hash( cur_window.name .. name )
 	local lst_idx = FindId( listbox_state, my_id )
@@ -1211,9 +1336,9 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + (max_chars * char_w), h = (num_rows * text_h) }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + (max_chars * char_w), h = (num_rows * text_h) }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
 	end
 
 	UpdateLayout( bbox )
@@ -1221,8 +1346,8 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	local highlight_idx = nil
 	local result = false
 
-	local scrollmax = #collection - num_rows + 1
-	if #collection < num_rows then scrollmax = 1 end
+	local scrollmax = #collection - num_visible_rows + 1
+	if #collection < num_visible_rows then scrollmax = 1 end
 	if listbox_state[ lst_idx ].scroll > scrollmax then listbox_state[ lst_idx ].scroll = scrollmax end
 
 	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
@@ -1261,7 +1386,7 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	local lst_scroll = listbox_state[ lst_idx ].scroll
 	local lst_selected_idx = listbox_state[ lst_idx ].selected_idx
 
-	if lst_selected_idx >= lst_scroll and lst_selected_idx <= lst_scroll + num_rows then
+	if lst_selected_idx >= lst_scroll and lst_selected_idx <= lst_scroll + num_visible_rows then
 		local selected_rect = { x = bbox.x, y = bbox.y + (lst_selected_idx - lst_scroll) * text_h, w = bbox.w, h = text_h }
 		table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = selected_rect, color = colors.list_selected } )
 	end
@@ -1273,22 +1398,21 @@ function UI.ListBox( name, num_rows, max_chars, collection )
 	end
 
 	local y_offset = bbox.y
-	local last = lst_scroll + num_rows - 1
-	if #collection < num_rows then
+	local last = lst_scroll + num_visible_rows - 1
+	if #collection < num_visible_rows then
 		last = #collection
 	end
 
 	for i = lst_scroll, last do
 		local str = collection[ i ]
 		local num_chars = utf8.len( str )
-		local num_bytes = utf8.offset( str, num_chars, 1 )
 
-		if num_chars > max_chars then
-			if num_chars ~= num_bytes then
-				local count = utf8.offset( str, max_chars, 1 )
-				str = str:sub( 1, count + 1 )
+		if num_chars > num_visible_chars then
+			if num_chars ~= #str then
+				local count = utf8.offset( str, num_visible_chars, 1 ) + 1
+				str = str:sub( 1, count )
 			else
-				str = str:sub( 1, max_chars )
+				str = str:sub( 1, num_visible_chars )
 			end
 		end
 

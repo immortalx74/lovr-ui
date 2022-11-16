@@ -66,23 +66,23 @@ NOTE: General purpose widget for custom drawing/interaction. The returned Pass c
 like plane, circle, text, etc. X and Y are the local 2D coordinates of the pointer (0,0 is top,left)
 
 ---
-`UI.TextBox(name, num_chars, buffer)`
+`UI.TextBox(name, num_visible_chars, buffer)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`name`|string|textbox ID
-|`num_chars`|number|number of visible characters
+|`num_visible_chars`|number|number of visible characters
 |`buffer`|string|user provided text buffer
 
 <span style="color:DeepSkyBlue">Returns:</span> `boolean`, `boolean`, `number`, `string` , [1] got focus, [2] buffer changed, [3] ID, [4] modified buffer.  
 NOTE: When clicked, an on-screen keyboard will pop-up for text entry. Enter closes the keyboard. To modify the original buffer assign the 4th return value back to the original buffer variable. The ID returned can be passed in the helper function `UI.SetTextBoxText` to set the desired text after validation. (example in main.lua) 
 
 ---
-`UI.ListBox(name, num_rows, max_chars, collection)`
+`UI.ListBox(name, num_rows, num_visible_chars, collection)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`name`|string|listbox ID
-|`num_rows`|number|number of visible rows
-|`max_chars`|number|maximum number of characters displayed on each row
+|`num__visible_rows`|number|number of visible rows
+|`num_visible_chars`|number|number of visible characters on each row
 |`collection`|table|table of strings
 
 <span style="color:DeepSkyBlue">Returns:</span> `boolean`, `number`, [1] true when clicked, [2] the selected item index  
@@ -344,4 +344,4 @@ NOTE: Helper to set the ui scale. Don't call this every frame (it causes texture
 `UI.Begin()`/`UI.End()` defines a window. Widget function calls placed inside this block, are then part of this window.
 lovr-ui currently uses a row-based auto-layout. That means that there are limits to how widgets are positioned.
 Widget sizes are mostly character-width based. This is done for simplicity.
-This library borrows concepts from the outstanding [Dear ImGui](https://github.com/ocornut/imgui) library and is inspired by [microui](https://github.com/rxi/microui), trying to be simple and minimal (~1200 lines).
+This library borrows concepts from the outstanding [Dear ImGui](https://github.com/ocornut/imgui) library and is inspired by [microui](https://github.com/rxi/microui), trying to be simple and minimal.
