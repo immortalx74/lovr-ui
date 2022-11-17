@@ -707,7 +707,7 @@ function UI.SetInteractionEnabled( enabled )
 	end
 end
 
-function UI.InputInfo()
+function UI.InputInfo(emulated_headset, ray_position, ray_orientation)
 	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
 		input.interaction_enabled = not input.interaction_enabled
 		hovered_window_id = nil
@@ -729,10 +729,24 @@ function UI.InputInfo()
 		input.trigger = e_trigger.idle
 	end
 
-	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
-	ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
-	local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
-	ray.dir = quat( m ):direction()
+	if emulated_headset then
+		if ray_position and ray_orientation then
+			ray.pos = vec3(ray_position.x, ray_position.y, ray_position.z)
+			ray.ori = quat(ray_orientation)
+			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
+			ray.dir = quat(m):direction()
+		else
+			ray.pos = vec3(lovr.headset.getPosition("head"))
+			ray.ori = quat(lovr.headset.getOrientation("head"))
+			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
+			ray.dir = quat(m):direction()
+		end
+	else
+		ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
+		ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
+		local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
+		ray.dir = quat( m ):direction()
+	end
 
 	caret.counter = caret.counter + 1
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
