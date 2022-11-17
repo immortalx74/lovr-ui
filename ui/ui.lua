@@ -42,7 +42,7 @@ local controller_vibrate = false
 local image_buttons_default_ttl = 2
 local whiteboards_default_ttl = 2
 local utf8 = {}
-local font = { handle, w, h, scale = 1 }
+local font = { handle = nil, w = nil, h = nil, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
 local textbox_state = {}
@@ -125,10 +125,6 @@ color_themes.light =
 	slider_thumb = { 0.700, 0.700, 0.700 },
 	list_bg = { 0.877, 0.883, 0.877 },
 	list_border = { 0.000, 0.000, 0.000 },
-	list_selected = { 0.686, 0.687, 0.688 },
-	list_highlight = { 0.808, 0.810, 0.811 },
-	check_mark = { 0.000, 0.000, 0.000 },
-	radio_border = { 0.000, 0.000, 0.000 },
 	list_selected = { 0.686, 0.687, 0.688 },
 	list_highlight = { 0.808, 0.810, 0.811 },
 	check_mark = { 0.000, 0.000, 0.000 },
@@ -711,7 +707,7 @@ function UI.SetInteractionEnabled( enabled )
 	end
 end
 
-function UI.InputInfo()
+function UI.InputInfo(emulated_headset, ray_position, ray_orientation)
 	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
 		input.interaction_enabled = not input.interaction_enabled
 		hovered_window_id = nil
@@ -733,10 +729,24 @@ function UI.InputInfo()
 		input.trigger = e_trigger.idle
 	end
 
-	ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
-	ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
-	local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
-	ray.dir = quat( m ):direction()
+	if emulated_headset then
+		if ray_position and ray_orientation then
+			ray.pos = vec3(ray_position.x, ray_position.y, ray_position.z)
+			ray.ori = quat(ray_orientation)
+			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
+			ray.dir = quat(m):direction()
+		else
+			ray.pos = vec3(lovr.headset.getPosition("head"))
+			ray.ori = quat(lovr.headset.getOrientation("head"))
+			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
+			ray.dir = quat(m):direction()
+		end
+	else
+		ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
+		ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
+		local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
+		ray.dir = quat( m ):direction()
+	end
 
 	caret.counter = caret.counter + 1
 	if caret.counter > caret.blink_rate then caret.counter = 0 end
