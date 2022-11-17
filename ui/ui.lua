@@ -42,7 +42,7 @@ local controller_vibrate = false
 local image_buttons_default_ttl = 2
 local whiteboards_default_ttl = 2
 local utf8 = {}
-local font = { handle, w, h, scale = 1 }
+local font = { handle = nil, w = nil, h = nil, scale = 1 }
 local caret = { blink_rate = 50, counter = 0 }
 local listbox_state = {}
 local textbox_state = {}
@@ -125,10 +125,6 @@ color_themes.light =
 	slider_thumb = { 0.700, 0.700, 0.700 },
 	list_bg = { 0.877, 0.883, 0.877 },
 	list_border = { 0.000, 0.000, 0.000 },
-	list_selected = { 0.686, 0.687, 0.688 },
-	list_highlight = { 0.808, 0.810, 0.811 },
-	check_mark = { 0.000, 0.000, 0.000 },
-	radio_border = { 0.000, 0.000, 0.000 },
 	list_selected = { 0.686, 0.687, 0.688 },
 	list_highlight = { 0.808, 0.810, 0.811 },
 	check_mark = { 0.000, 0.000, 0.000 },
