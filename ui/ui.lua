@@ -592,7 +592,7 @@ function utf8.offset( str, n, startPos )
 	if n == 0 then
 
 		for i = startPos, 1, -1 do
-			local seqStartPos, seqEndPos = decode( str, i )
+			local seqStartPos, seqEndPos = utf8.decode( str, i )
 			if seqStartPos then
 				return seqStartPos
 			end
@@ -630,6 +630,33 @@ function utf8.offset( str, n, startPos )
 	return nil
 end
 
+function utf8.sub( text, s_pos, e_pos )
+	if e_pos == -1 then
+		e_pos = utf8.len( text, 1, -1 )
+	end
+	if s_pos > e_pos then
+		return ""
+	end
+
+	local start_offset_byte = utf8.offset( text, s_pos )
+	local end_offset_byte = utf8.offset( text, e_pos )
+
+	if end_offset_byte == nil then
+		end_offset_byte = e_pos
+	end
+
+	local char_start, char_end = utf8.decode( text, end_offset_byte )
+
+	if char_end == nil then
+		char_end = 0
+		char_start = 0
+	end
+
+	local count = char_end - char_start
+	local str = text:sub( start_offset_byte, end_offset_byte + count )
+	return str
+end
+
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
@@ -644,8 +671,8 @@ end
 function UI.SetTextBoxText( id, text )
 	local idx = FindId( textbox_state, id )
 	textbox_state[ idx ].text = text
-	if textbox_state[ idx ].text:len() > textbox_state[ idx ].num_chars then
-		textbox_state[ idx ].scroll = textbox_state[ idx ].text:len() - textbox_state[ idx ].num_chars + 1
+	if utf8.len( textbox_state[ idx ].text, 1 ) > textbox_state[ idx ].num_visible_chars then
+		textbox_state[ idx ].scroll = utf8.len( textbox_state[ idx ].text, 1 ) - textbox_state[ idx ].num_visible_chars + 1
 	end
 	textbox_state[ idx ].cursor = textbox_state[ idx ].text:len()
 end
@@ -707,7 +734,7 @@ function UI.SetInteractionEnabled( enabled )
 	end
 end
 
-function UI.InputInfo(emulated_headset, ray_position, ray_orientation)
+function UI.InputInfo( emulated_headset, ray_position, ray_orientation )
 	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
 		input.interaction_enabled = not input.interaction_enabled
 		hovered_window_id = nil
@@ -731,15 +758,15 @@ function UI.InputInfo(emulated_headset, ray_position, ray_orientation)
 
 	if emulated_headset then
 		if ray_position and ray_orientation then
-			ray.pos = vec3(ray_position.x, ray_position.y, ray_position.z)
-			ray.ori = quat(ray_orientation)
-			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
-			ray.dir = quat(m):direction()
+			ray.pos = vec3( ray_position.x, ray_position.y, ray_position.z )
+			ray.ori = quat( ray_orientation )
+			local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( 0, 1, 0, 0 )
+			ray.dir = quat( m ):direction()
 		else
-			ray.pos = vec3(lovr.headset.getPosition("head"))
-			ray.ori = quat(lovr.headset.getOrientation("head"))
-			local m = mat4(vec3(0, 0, 0), ray.ori):rotate(0, 1, 0, 0)
-			ray.dir = quat(m):direction()
+			ray.pos = vec3( lovr.headset.getPosition( "head" ) )
+			ray.ori = quat( lovr.headset.getOrientation( "head" ) )
+			local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( 0, 1, 0, 0 )
+			ray.dir = quat( m ):direction()
 		end
 	else
 		ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
@@ -1213,11 +1240,9 @@ function UI.TextBox( name, num_visible_chars, buffer )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
+		local str_len = utf8.len( buffer, 1, -1 )
 		local scrl = 1
-		if buffer:len() > num_visible_chars then
-			scrl = buffer:len() - num_visible_chars + 1
-		end
-		local tb = { id = my_id, text = buffer, scroll = scrl, cursor = buffer:len(), num_visible_chars = num_visible_chars }
+		local tb = { id = my_id, text = buffer, scroll = scrl, cursor = 0, num_visible_chars = num_visible_chars }
 		table.insert( textbox_state, tb )
 		tb_idx = #textbox_state
 	end
@@ -1252,16 +1277,30 @@ function UI.TextBox( name, num_visible_chars, buffer )
 			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
 			osk.visible = true
 			focused_textbox = textbox_state[ tb_idx ]
-			focused_textbox.cursor = focused_textbox.text:len()
+			local str_len = utf8.len( focused_textbox.text, 1, -1 )
+			focused_textbox.cursor = str_len
+
 			focused_textbox.scroll = 1
-			if focused_textbox.text:len() > num_visible_chars then
-				focused_textbox.scroll = focused_textbox.text:len() - num_visible_chars + 1
-			end
+			focused_textbox.cursor = 0
+
 			got_focus = true
 		end
 	end
 
-	local str = textbox_state[ tb_idx ].text:sub( 1, num_visible_chars )
+	local str = ""
+	if #textbox_state[ tb_idx ].text > 0 then
+		local str_len = utf8.len( textbox_state[ tb_idx ].text, 1, -1 )
+		if str_len ~= #textbox_state[ tb_idx ].text then
+			if str_len >= num_visible_chars then
+				str = utf8.sub( textbox_state[ tb_idx ].text, 1, num_visible_chars )
+			else
+				str = utf8.sub( textbox_state[ tb_idx ].text, 1, str_len )
+			end
+		else
+			str = textbox_state[ tb_idx ].text:sub( 1, num_visible_chars )
+		end
+	end
+
 	local buffer_changed = false
 
 	if focused_textbox and focused_textbox.id == my_id then
@@ -1278,19 +1317,19 @@ function UI.TextBox( name, num_visible_chars, buffer )
 				focused_textbox.cursor = focused_textbox.cursor + 1
 				if focused_textbox.cursor > focused_textbox.num_visible_chars + focused_textbox.scroll - 1 then
 					focused_textbox.scroll = focused_textbox.scroll + 1
-					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_visible_chars then
-						focused_textbox.scroll = focused_textbox.text:len() - focused_textbox.num_visible_chars + 1
+					if focused_textbox.scroll > utf8.len( focused_textbox.text, 1, -1 ) - focused_textbox.num_visible_chars then
+						focused_textbox.scroll = utf8.len( focused_textbox.text, 1, -1 ) - focused_textbox.num_visible_chars + 1
 					end
 				end
-				if focused_textbox.cursor > focused_textbox.text:len() then focused_textbox.cursor = focused_textbox.text:len() end
+				if focused_textbox.cursor > utf8.len( focused_textbox.text, 1, -1 ) then focused_textbox.cursor = utf8.len( focused_textbox.text, 1, -1 ) end
 			elseif osk.last_key == "backspace" then
 				if focused_textbox.cursor > 0 then
 					buffer_changed = true
-					local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
-					local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+					local s1 = utf8.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
+					local s2 = utf8.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
 					focused_textbox.text = s1 .. s2
 					focused_textbox.cursor = focused_textbox.cursor - 1
-					if focused_textbox.scroll > focused_textbox.text:len() - focused_textbox.num_visible_chars + 1 then
+					if focused_textbox.scroll > utf8.len( focused_textbox.text, 1 ) - focused_textbox.num_visible_chars + 1 then
 						focused_textbox.scroll = focused_textbox.scroll - 1
 						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
 					end
@@ -1299,8 +1338,9 @@ function UI.TextBox( name, num_visible_chars, buffer )
 				return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
 			else
 				buffer_changed = true
-				local s1 = string.sub( focused_textbox.text, 1, focused_textbox.cursor )
-				local s2 = string.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+				local s1 = utf8.sub( focused_textbox.text, 1, focused_textbox.cursor )
+				local s2 = utf8.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+
 				focused_textbox.text = s1 .. osk.last_key .. s2
 				focused_textbox.cursor = focused_textbox.cursor + 1
 				if focused_textbox.cursor > focused_textbox.num_visible_chars then
@@ -1309,13 +1349,25 @@ function UI.TextBox( name, num_visible_chars, buffer )
 			end
 
 		end
-		str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
+
+		if #focused_textbox.text > 0 then
+			local str_len = utf8.len( focused_textbox.text, 1, -1 )
+			if str_len ~= #focused_textbox.text then
+				if str_len >= num_visible_chars then
+					str = utf8.sub( focused_textbox.text, focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
+				else
+					str = utf8.sub( focused_textbox.text, 1, str_len )
+				end
+			else
+				str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
+			end
+		end
 	end
 
 	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
 	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + margin, y = text_rect.y,
-		w = (str:len() * char_w) + margin, h = text_rect.h }, color = colors.text } )
+		w = (utf8.len( str, 1 ) * char_w) + margin, h = text_rect.h }, color = colors.text } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = name, bbox = label_rect, color = colors.text } )
 
 	-- caret
@@ -1419,8 +1471,8 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection )
 
 		if num_chars > num_visible_chars then
 			if num_chars ~= #str then
-				local count = utf8.offset( str, num_visible_chars, 1 ) + 1
-				str = str:sub( 1, count )
+				local count = utf8.offset( str, num_visible_chars, 1 )
+				str = utf8.sub( str, 1, num_visible_chars )
 			else
 				str = str:sub( 1, num_visible_chars )
 			end

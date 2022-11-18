@@ -250,10 +250,12 @@ NOTE: Should be called on `lovr.load()`. Defaults are `hand/left`, `thumbstick`,
 `UI.InputInfo()`
 |Argument|Type|Description
 |:---|:---|:---|
-|`none`||
+|`emulated_headset` _[opt]_|boolean|emulated headset
+|`ray_position` _[opt]_|Vec3|ray position
+|`ray_orientation` _[opt]_|Quat|ray orientation
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: Should be called on `lovr.update()`
+NOTE: Should be called on `lovr.update()`. To operate in standard "VR mode" do not pass any arguments. The optional arguments could be passed to emulate the headset with mouse and keyboard. When only the 1st argument is passed, data is captured from the emulated headset directly. When the render pass has a different transform than the headset, then the 2 last arguments should be passed too.
 
 ---
 `UI.NewFrame(main_pass)`
