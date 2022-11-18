@@ -73,6 +73,36 @@ function lovr.load()
 	UI.Init()
 	lovr.graphics.setBackgroundColor( 0.4, 0.4, 1 )
 	col_list = UI.GetColorNames()
+
+	-- Add an additional language "pack"
+	local lower_case =
+	{
+		"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+		";", "ς", "ε", "ρ", "τ", "υ", "θ", "ι", "ο", "π",
+		"α", "σ", "δ", "φ", "γ", "η", "ξ", "κ", "λ", ".",
+		"shift", "ζ", "χ", "ψ", "ω", "β", "ν", "μ", ",", "backspace",
+		"symbol", "left", "right", " ", " ", " ", "-", "_", "return", "return",
+	}
+
+	local upper_case =
+	{
+		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+		";", "ς", "Ε", "Ρ", "Τ", "Υ", "Θ", "Ι", "Ο", "Π",
+		"Α", "Σ", "Δ", "Φ", "Γ", "Η", "Ξ", "Κ", "Λ", ":",
+		"shift", "Ζ", "Χ", "Ψ", "Ω", "Β", "Ν", "Μ", "?", "backspace",
+		"symbol", "left", "right", " ", " ", " ", "<", ">", "return", "return",
+	}
+
+	local symbols =
+	{
+		"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+		"+", "=", "[", "]", "{", "}", "\\", "|", "/", "`",
+		"shift", "~", ",", ".", "<", ">", ";", ":", "\"", "backspace",
+		"symbol", "left", "right", " ", " ", " ", "-", "_", "return", "return",
+	}
+
+	UI.AddKeyboardPack( lower_case, upper_case, symbols )
 end
 
 function lovr.update( dt )

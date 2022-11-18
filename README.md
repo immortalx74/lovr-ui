@@ -12,6 +12,7 @@
  - Change the dominant hand by pushing the corresponding trigger button.
  - Scroll in ListBox with the Y-axis of the analog stick.
  - Text entry is done by an on-screen keyboard (appears when a TextBox has focus).
+ - If additional keyboard languages are provided, cycling between them is done by holding grip and pressing the trigger on the space key.
  - Enter an exact value in a slider by holding down grip and pressing trigger.
  - Move windows by pointing at them and holding the grip button.
  - Enable/Disable interaction with the GUI by pressing the Left Thumbstick down (user configurable).
@@ -321,6 +322,17 @@ NOTE: Helper to override a color value.
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
 NOTE: Sets a theme to one of the built-in ones ("dark", "light") if the passed argument is a string. Also accepts a table of colors. If the passed table doesn't contain all of the keys, the rest of them will be copied from the built-in theme of the `copy_from` argument.
+
+---
+`UI.AddKeyboardPack(lower_case, upper_case, symbols)`
+|Argument|Type|Description
+|:---|:---|:---|
+|`lower_case`|table|lower case characters
+|`upper_case`|table|upper case characters
+|`symbols`|table|symbol characters
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Provides the ability to add a language pack for the on-screen keyboard. The default pack is Latin. Cycling between packs is done by holding the grip button and pressing the trigger on the space key of the on-screen keyboard.
 
 ---
 `UI.GetScale()`

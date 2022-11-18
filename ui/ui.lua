@@ -58,8 +58,10 @@ local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4(
 local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
 local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
 	pointer_rotation = math.pi / 3 }
-local osk = { textures = {}, visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), mode = {}, cur_mode = 1, last_key = nil }
+local osk = { visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), packs = {}, cur_mode = 1, cur_pack = 1,
+	last_key = nil }
 local clamp_sampler = lovr.graphics.newSampler( { wrap = 'clamp' } )
+osk.packs[ 1 ] = { mode = {}, textures = {} }
 
 color_themes.dark =
 {
@@ -139,7 +141,7 @@ color_themes.light =
 
 local colors = color_themes.dark
 
-osk.mode[ 1 ] =
+osk.packs[ 1 ].mode[ 1 ] =
 {
 	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
 	"q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
@@ -148,7 +150,7 @@ osk.mode[ 1 ] =
 	"symbol", "left", "right", " ", " ", " ", "-", "_", "return", "return",
 }
 
-osk.mode[ 2 ] =
+osk.packs[ 1 ].mode[ 2 ] =
 {
 	"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
 	"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
@@ -157,7 +159,7 @@ osk.mode[ 2 ] =
 	"symbol", "left", "right", " ", " ", " ", "<", ">", "return", "return",
 }
 
-osk.mode[ 3 ] =
+osk.packs[ 1 ].mode[ 3 ] =
 {
 	"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
 	"!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
@@ -316,110 +318,112 @@ end
 local function GenerateOSKTextures()
 	-- TODO: Fix code repetition
 	local passes = {}
-	for md = 1, 3 do
-		local p = lovr.graphics.getPass( 'render', { osk.textures[ md ], mipmap = true } )
-		p:setFont( font.handle )
-		p:setDepthTest( nil )
-		p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
-		p:setColor( colors.window_bg )
-		p:fill()
-		p:setColor( colors.window_border )
-		p:plane( mat4( vec3( 320, 160, 0 ), vec3( 640, 320, 0 ) ), "line" )
+	for pk = 1, #osk.packs do
+		for md = 1, 3 do
+			local p = lovr.graphics.getPass( 'render', { osk.packs[ pk ].textures[ md ], mipmap = true } )
+			p:setFont( font.handle )
+			p:setDepthTest( nil )
+			p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
+			p:setColor( colors.window_bg )
+			p:fill()
+			p:setColor( colors.window_border )
+			p:plane( mat4( vec3( 320, 160, 0 ), vec3( 640, 320, 0 ) ), "line" )
 
-		local x_off = 0
-		local y_off = 32
-		local count = 1
+			local x_off = 0
+			local y_off = 32
+			local count = 1
 
-		for i, v in ipairs( osk.mode[ md ] ) do
-			if i == 31 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				if md == 2 then p:setColor( colors.osk_mode_bg ) end
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "⇧", m )
-			elseif i == 40 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "⌫", m )
-			elseif i == 41 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				if md == 3 then p:setColor( colors.osk_mode_bg ) end
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 22 * ui_scale, 22 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "123?", m )
-			elseif i == 42 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "←", m )
-			elseif i == 43 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "→", m )
-			elseif i == 45 then
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 184, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "̶", m )
-			elseif i == 49 then
-				local m = mat4( vec3( (count * 32) + x_off + 32, y_off, 0 ), vec3( 118, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( "⏎", m )
-			elseif i == 44 or i == 46 or i == 50 then -- skip those
-			else
-				local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-				p:setColor( colors.button_bg )
-				p:plane( m, "fill" )
-				p:setColor( colors.button_border )
-				p:plane( m, "line" )
-				m:scale( vec3( 32 * ui_scale, 32 * ui_scale, 0 ) )
-				p:setColor( colors.text )
-				p:text( v, m )
+			for i, v in ipairs( osk.packs[ pk ].mode[ md ] ) do
+				if i == 31 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					if md == 2 then p:setColor( colors.osk_mode_bg ) end
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "⇧", m )
+				elseif i == 40 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "⌫", m )
+				elseif i == 41 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					if md == 3 then p:setColor( colors.osk_mode_bg ) end
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 22 * ui_scale, 22 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "123?", m )
+				elseif i == 42 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "←", m )
+				elseif i == 43 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "→", m )
+				elseif i == 45 then
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 184, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "̶", m )
+				elseif i == 49 then
+					local m = mat4( vec3( (count * 32) + x_off + 32, y_off, 0 ), vec3( 118, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( "⏎", m )
+				elseif i == 44 or i == 46 or i == 50 then -- skip those
+				else
+					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
+					p:setColor( colors.button_bg )
+					p:plane( m, "fill" )
+					p:setColor( colors.button_border )
+					p:plane( m, "line" )
+					m:scale( vec3( 32 * ui_scale, 32 * ui_scale, 0 ) )
+					p:setColor( colors.text )
+					p:text( v, m )
+				end
+
+				x_off = x_off + 32
+				count = count + 1
+
+				if i % 10 == 0 then
+					y_off = y_off + 64
+					x_off = 0
+					count = 1
+				end
 			end
 
-			x_off = x_off + 32
-			count = count + 1
-
-			if i % 10 == 0 then
-				y_off = y_off + 64
-				x_off = 0
-				count = 1
-			end
+			p:plane( m, "fill" )
+			table.insert( passes, p )
 		end
-
-		p:plane( m, "fill" )
-		table.insert( passes, p )
 	end
 	return passes
 end
@@ -435,7 +439,7 @@ local function ShowOSK( pass )
 	osk.last_key = nil
 
 	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
-		texture = osk.textures[ osk.cur_mode ], pass = pass, is_hovered = false }
+		texture = osk.packs[ osk.cur_pack ].textures[ osk.cur_mode ], pass = pass, is_hovered = false }
 
 	table.insert( windows, 1, window ) -- NOTE: Insert on top. Does it make any difference?
 
@@ -448,7 +452,7 @@ local function ShowOSK( pass )
 		if input.trigger == e_trigger.pressed then
 			if focused_textbox or focused_slider then
 				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-				local btn = osk.mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
+				local btn = osk.packs[ osk.cur_pack ].mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
 				if btn == "shift" then
 					osk.last_key = nil
@@ -477,7 +481,15 @@ local function ShowOSK( pass )
 				elseif btn == "backspace" then
 					osk.last_key = "backspace"
 				else
-					osk.last_key = btn
+					if lovr.headset.isDown( dominant_hand, "grip" ) and btn == " " then
+						if osk.cur_pack < #osk.packs then
+							osk.cur_pack = osk.cur_pack + 1
+						else
+							osk.cur_pack = 1
+						end
+					else
+						osk.last_key = btn
+					end
 				end
 			end
 		end
@@ -660,6 +672,21 @@ end
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
+function UI.AddKeyboardPack( lower_case, upper_case, symbols )
+	local md = {}
+	md[ 1 ] = lower_case
+	md[ 2 ] = upper_case
+	md[ 3 ] = symbols
+
+	local t = {}
+	t[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	t[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	t[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+
+	osk.packs[ #osk.packs + 1 ] = { mode = md, textures = t }
+	GenerateOSKTextures()
+end
+
 function UI.GetScale()
 	return ui_scale
 end
@@ -788,9 +815,9 @@ function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled,
 	input.interaction_enabled = (enabled ~= false)
 	input.pointer_rotation = pointer_rotation or input.pointer_rotation
 	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
-	osk.textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
-	osk.textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
-	osk.textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	osk.packs[ 1 ].textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	osk.packs[ 1 ].textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
+	osk.packs[ 1 ].textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
 end
 
 function UI.NewFrame( main_pass )
