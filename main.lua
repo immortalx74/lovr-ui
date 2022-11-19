@@ -38,10 +38,14 @@ function Bezier( t, p0, p1, p2, p3 )
 end
 
 local accuracy = 0.01
-local p0 = { x = 30, y = 30 }
-local p1 = { x = 120, y = 100 }
-local p2 = { x = 150, y = 430 }
-local p3 = { x = 400, y = 300 }
+local pts = { { x = 30, y = 30 }, { x = 120, y = 100 }, { x = 150, y = 430 }, { x = 400, y = 300 } }
+-- local p0 = { x = 30, y = 30 }
+-- local p1 = { x = 120, y = 100 }
+-- local p2 = { x = 150, y = 430 }
+-- local p3 = { x = 400, y = 300 }
+
+local selected_point = nil
+local hovered_point = nil
 
 local x, y, a, c1, c2, c3
 for i = 1, 10 do
@@ -244,44 +248,78 @@ function lovr.draw( pass )
 
 	-- whiteboard 3
 	local ps, clicked, down, released, hovered, lx, ly = UI.WhiteBoard( "WhiteBoard3", 500, 500 )
+	if hovered then
+		for i = 1, 4 do
+			if lx > pts[ i ].x - 10 and lx < pts[ i ].x + 10 and ly > pts[ i ].y - 10 and ly < pts[ i ].y + 10 then
+				hovered_point = i
+				if clicked then
+					selected_point = i
+					hovered_point = nil
+				end
+				break
+			else
+				hovered_point = nil
+			end
+		end
+	end
+	if released then
+		selected_point = nil
+	end
+	if selected_point then
+		if lx >= 0 and lx <= 500 then
+			pts[ selected_point ].x = lx
+		end
+		if ly >= 0 and ly <= 500 then
+			pts[ selected_point ].y = ly
+		end
+	end
 	ps:setColor( 0, 0, 0 )
 	ps:fill()
 
 	ps:setColor( 1, 1, 0 )
-	local startx = p0.x
-	local starty = p0.y
+	local startx = pts[ 1 ].x
+	local starty = pts[ 1 ].y
 
 	for i = 0, 1, accuracy do
-		local p = Bezier( i, p0, p1, p2, p3 )
+		local p = Bezier( i, pts[ 1 ], pts[ 2 ], pts[ 3 ], pts[ 4 ] )
 		ps:line( startx, starty, 0, p.x, p.y, 0 )
 		startx = p.x
 		starty = p.y
 	end
 
 	ps:setColor( 0.15, 0.15, 0.15 )
-	ps:line( p0.x, p0.y, 0, p1.x, p1.y, 0, p2.x, p2.y, 0, p3.x, p3.y, 0 )
+	ps:line( pts[ 1 ].x, pts[ 1 ].y, 0, pts[ 2 ].x, pts[ 2 ].y, 0, pts[ 3 ].x, pts[ 3 ].y, 0, pts[ 4 ].x, pts[ 4 ].y, 0 )
 
 	ps:setColor( 1, 0, 1 )
-	ps:plane( p0.x, p0.y, 0, 20 )
+	ps:plane( pts[ 1 ].x, pts[ 1 ].y, 0, 20 )
 	ps:setColor( 0, 1, 1 )
-	ps:plane( p1.x, p1.y, 0, 20 )
-	ps:plane( p2.x, p2.y, 0, 20 )
+	ps:plane( pts[ 2 ].x, pts[ 2 ].y, 0, 20 )
+	ps:plane( pts[ 3 ].x, pts[ 3 ].y, 0, 20 )
 	ps:setColor( 1, 0, 1 )
-	ps:plane( p3.x, p3.y, 0, 20 )
+	ps:plane( pts[ 4 ].x, pts[ 4 ].y, 0, 20 )
+
+	if hovered_point then
+		ps:setColor( 1, 1, 1 )
+		ps:plane( pts[ hovered_point ].x, pts[ hovered_point ].y, 0, 30 )
+	end
+	if selected_point then
+		ps:setColor( 1, 1, 0 )
+		ps:plane( pts[ selected_point ].x, pts[ selected_point ].y, 0, 30 )
+	end
 
 	local r
-	r, p0.x = UI.SliderFloat( "p0.x", p0.x, 0, 500 );
+	r, pts[ 1 ].x = UI.SliderFloat( "p1.x", pts[ 1 ].x, 0, 500 );
 	UI.SameLine();
-	r, p0.y = UI.SliderFloat( "p0.y", p0.y, 0, 500 )
-	r, p1.x = UI.SliderFloat( "p1.x", p1.x, 0, 500 );
+	r, pts[ 1 ].y = UI.SliderFloat( "p1.y", pts[ 1 ].y, 0, 500 )
+	r, pts[ 2 ].x = UI.SliderFloat( "p2.x", pts[ 2 ].x, 0, 500 );
 	UI.SameLine();
-	r, p1.y = UI.SliderFloat( "p1.y", p1.y, 0, 500 )
-	r, p2.x = UI.SliderFloat( "p2.x", p2.x, 0, 500 );
+	r, pts[ 2 ].y = UI.SliderFloat( "p2.y", pts[ 2 ].y, 0, 500 )
+	r, pts[ 3 ].x = UI.SliderFloat( "p3.x", pts[ 3 ].x, 0, 500 );
 	UI.SameLine();
-	r, p2.y = UI.SliderFloat( "p2.y", p2.y, 0, 500 )
-	r, p3.x = UI.SliderFloat( "p3.x", p3.x, 0, 500 );
+	r, pts[ 3 ].y = UI.SliderFloat( "p3.y", pts[ 3 ].y, 0, 500 )
+	r, pts[ 4 ].x = UI.SliderFloat( "p4.x", pts[ 4 ].x, 0, 500 );
 	UI.SameLine();
-	r, p3.y = UI.SliderFloat( "p3.y", p3.y, 0, 500 )
+	r, pts[ 4 ].y = UI.SliderFloat( "p4.y", pts[ 4 ].y, 0, 500 )
 
 	UI.Label( "Energy bill increase:" )
 	UI.ProgressBar( progress_value, 400 )
