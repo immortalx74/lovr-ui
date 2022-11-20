@@ -273,7 +273,8 @@ NOTE: Should be called on `lovr.draw()`. Windows and widgets should be called af
 |:---|:---|:---|
 |`main_pass`|Pass|the main Pass object.
 
-<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+<span style="color:DeepSkyBlue">Returns:</span> `table`, ui passes  
+NOTE: During the frame, lovr-ui records its own passes for drawing the various elements but doesn't submit them. Instead, a table of those passes is returned to the user where they can be scheduled to be submitted along with the default pass (See the example near the end of main.lua).
 
 ---
 `UI.GetColorNames()`

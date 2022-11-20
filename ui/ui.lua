@@ -822,6 +822,35 @@ end
 
 function UI.NewFrame( main_pass )
 	font.handle:setPixelDensity( 1.0 )
+	if new_scale then
+		ui_scale = new_scale
+	end
+	new_scale = nil
+
+	ClearTable( windows )
+	ClearTable( passes )
+
+	if #image_buttons > 0 then
+		for i = #image_buttons, 1, -1 do
+			image_buttons[ i ].ttl = image_buttons[ i ].ttl - 1
+			if image_buttons[ i ].ttl <= 0 then
+				image_buttons[ i ].texture:release()
+				image_buttons[ i ].texture = nil
+				table.remove( image_buttons, i )
+			end
+		end
+	end
+
+	if #whiteboards > 0 then
+		for i = #whiteboards, 1, -1 do
+			whiteboards[ i ].ttl = whiteboards[ i ].ttl - 1
+			if whiteboards[ i ].ttl <= 0 then
+				whiteboards[ i ].texture:release()
+				whiteboards[ i ].texture = nil
+				table.remove( whiteboards, i )
+			end
+		end
+	end
 end
 
 function UI.RenderFrame( main_pass )
@@ -869,41 +898,8 @@ function UI.RenderFrame( main_pass )
 		end
 		theme_changed = false
 	end
-
-	table.insert( passes, main_pass )
-	lovr.graphics.submit( passes )
-
-	if new_scale then
-		ui_scale = new_scale
-	end
-	new_scale = nil
-
-	ClearTable( windows )
-	ClearTable( passes )
-	ray = nil
-	ray = {}
-
-	if #image_buttons > 0 then
-		for i = #image_buttons, 1, -1 do
-			image_buttons[ i ].ttl = image_buttons[ i ].ttl - 1
-			if image_buttons[ i ].ttl <= 0 then
-				image_buttons[ i ].texture:release()
-				image_buttons[ i ].texture = nil
-				table.remove( image_buttons, i )
-			end
-		end
-	end
-
-	if #whiteboards > 0 then
-		for i = #whiteboards, 1, -1 do
-			whiteboards[ i ].ttl = whiteboards[ i ].ttl - 1
-			if whiteboards[ i ].ttl <= 0 then
-				whiteboards[ i ].texture:release()
-				whiteboards[ i ].texture = nil
-				table.remove( whiteboards, i )
-			end
-		end
-	end
+	
+	return passes
 end
 
 function UI.SameLine()

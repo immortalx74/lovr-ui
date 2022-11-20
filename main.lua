@@ -426,6 +426,11 @@ function lovr.draw( pass )
 	col_list_idx = select( 2, UI.ListBox( "color list", 10, 30, col_list ) )
 	UI.End( pass )
 
-	UI.RenderFrame( pass )
-	return true
+	-- lovr-ui records several passes during the frame and returns them as a table
+	local ui_passes = UI.RenderFrame( pass )
+	-- Regular drawing should be done here...
+	-- Then the default pass is appended on that table
+	table.insert( ui_passes, pass )
+	-- And finally all passes are submitted at once
+	return lovr.graphics.submit( ui_passes )
 end
