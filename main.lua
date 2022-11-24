@@ -20,6 +20,7 @@ plane_frames = 0
 amplitude = 100
 frequency = 0.1
 zoom = 1
+modal_window_open = false
 
 -- Bezier example adapted from http://jsfiddle.net/zj68t53f/20/
 function Bezier( t, p0, p1, p2, p3 )
@@ -163,8 +164,8 @@ function lovr.draw( pass )
 		-- UI.SetTextBoxText( textbox_id, "My new text" )
 	end
 	UI.TextBox( "Profession", 20, "" )
-	if UI.Button( "Test", 0, 0 ) then
-		print( buf )
+	if UI.Button( "Open modal window", 0, 0 ) then
+		modal_window_open = true
 	end
 	UI.SameLine()
 	UI.Button( "SameLine()" )
@@ -196,6 +197,22 @@ function lovr.draw( pass )
 		rb_idx = 3
 	end
 	UI.End( pass )
+
+	-- modal window
+	if modal_window_open then
+		UI.Begin( "modal_window", mat4( -0.5, 1.5, -0.9 ), true )
+		UI.Label( "A modal window" )
+		if UI.Button( "OK" ) then
+			modal_window_open = false
+			UI.EndModalWindow()
+		end
+		UI.SameLine()
+		if UI.Button( "Cancel" ) then
+			modal_window_open = false
+			UI.EndModalWindow()
+		end
+		UI.End( pass )
+	end
 
 	UI.Begin( "SecondWindow", win2pos )
 	UI.TextBox( "Location", 20, "" )

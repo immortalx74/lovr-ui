@@ -29,6 +29,7 @@ e_trigger.released = 4
 local theme_changed = true
 local activeID = nil
 local hotID = nil
+local modal_window = nil
 local dominant_hand = "hand/right"
 local hovered_window_id = nil
 local focused_textbox = nil
@@ -98,7 +99,8 @@ color_themes.dark =
 	progress_bar_fill = { 0.3, 0.3, 1 },
 	progress_bar_border = { 0, 0, 0 },
 	osk_mode_bg = { 0, 0, 0 },
-	osk_highlight = { 1, 1, 1 }
+	osk_highlight = { 1, 1, 1 },
+	modal_tint = { 0.3, 0.3, 0.3 }
 }
 
 color_themes.light =
@@ -136,7 +138,8 @@ color_themes.light =
 	button_bg_click = { 0.120, 0.120, 0.120 },
 	button_border = { 0.000, 0.000, 0.000 },
 	osk_mode_bg = { 0.5, 0.5, 0.5 },
-	osk_highlight = { 0.1, 0.1, 0.1 }
+	osk_highlight = { 0.1, 0.1, 0.1 },
+	modal_tint = { 0.15, 0.15, 0.15 }
 }
 
 local colors = color_themes.dark
@@ -672,6 +675,10 @@ end
 -- -------------------------------------------------------------------------- --
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
+function UI.EndModalWindow()
+	modal_window = nil
+end
+
 function UI.AddKeyboardPack( lower_case, upper_case, symbols )
 	local md = {}
 	md[ 1 ] = lower_case
@@ -898,7 +905,7 @@ function UI.RenderFrame( main_pass )
 		end
 		theme_changed = false
 	end
-	
+
 	return passes
 end
 
@@ -910,9 +917,13 @@ function UI.SameColumn()
 	layout.same_column = true
 end
 
-function UI.Begin( name, transform )
-	local window = { id = Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false }
+function UI.Begin( name, transform, is_modal )
+	local window = { id = Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false,
+		is_modal = is_modal or false }
 	table.insert( windows, window )
+	if is_modal then
+		modal_window = window.id
+	end
 end
 
 function UI.End( main_pass )
@@ -982,6 +993,9 @@ function UI.End( main_pass )
 	end
 
 	main_pass:setColor( 1, 1, 1 )
+	if modal_window and cur_window.id ~= modal_window then
+		main_pass:setColor( colors.modal_tint )
+	end
 	main_pass:setMaterial( cur_window.texture )
 	cur_window.unscaled_transform = lovr.math.newMat4( cur_window.transform )
 
@@ -1071,15 +1085,17 @@ function UI.ImageButton( img_filename, width, height )
 
 	local result = false
 
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.image_button_border_highlight } )
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			result = true
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.image_button_border_highlight } )
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				result = true
+			end
 		end
 	end
 
@@ -1116,19 +1132,22 @@ function UI.WhiteBoard( name, width, height )
 	local down = false
 	local released = false
 	local hovered = false
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		hovered = true
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-			clicked = true
-		end
-		if input.trigger == e_trigger.down and activeID == my_id then
-			down = true
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			released = true
+
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			hovered = true
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+				clicked = true
+			end
+			if input.trigger == e_trigger.down and activeID == my_id then
+				down = true
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				released = true
+			end
 		end
 	end
 
@@ -1168,7 +1187,6 @@ function UI.TabBar( name, tabs, idx )
 	local result = false, idx
 	local total_w = 0
 	local col = colors.tab_bar_bg
-	local cur_window = windows[ #windows ]
 	local x_off = bbox.x
 
 	for i, v in ipairs( tabs ) do
@@ -1176,19 +1194,21 @@ function UI.TabBar( name, tabs, idx )
 		local tab_w = text_w + (2 * margin)
 		bbox.w = bbox.w + tab_w
 
-		if PointInRect( last_off_x, last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.tab_bar_hover
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+		if not modal_window or (modal_window and modal_window == cur_window.id) then
+			if PointInRect( last_off_x, last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == hovered_window_id then
+				hotID = my_id
+				col = colors.tab_bar_hover
+				if input.trigger == e_trigger.pressed then
+					activeID = my_id
+				end
+				if input.trigger == e_trigger.released and hotID == activeID then
+					lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+					idx = i
+					result = true
+				end
+			else
+				col = colors.tab_bar_bg
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-				idx = i
-				result = true
-			end
-		else
-			col = colors.tab_bar_bg
 		end
 
 		local tab_rect = { x = x_off, y = bbox.y, w = tab_w, h = bbox.h }
@@ -1237,16 +1257,17 @@ function UI.Button( text, width, height )
 
 	local result = false
 	local col = colors.button_bg
-	local cur_window = windows[ #windows ]
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col = colors.button_bg_hover
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			result = true
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col = colors.button_bg_hover
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				result = true
+			end
 		end
 	end
 
@@ -1285,28 +1306,29 @@ function UI.TextBox( name, num_visible_chars, buffer )
 
 	local col1 = colors.textbox_bg
 	local col2 = colors.textbox_border
-	local cur_window = windows[ #windows ]
 	local text_rect = { x = bbox.x, y = bbox.y, w = bbox.w - margin - label_w, h = bbox.h }
 	local label_rect = { x = text_rect.x + text_rect.w + margin, y = bbox.y, w = label_w, h = bbox.h }
 	local got_focus = false
 
-	if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col1 = colors.textbox_bg_hover
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			osk.visible = true
-			focused_textbox = textbox_state[ tb_idx ]
-			local str_len = utf8.len( focused_textbox.text, 1, -1 )
-			focused_textbox.cursor = str_len
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col1 = colors.textbox_bg_hover
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				osk.visible = true
+				focused_textbox = textbox_state[ tb_idx ]
+				local str_len = utf8.len( focused_textbox.text, 1, -1 )
+				focused_textbox.cursor = str_len
 
-			focused_textbox.scroll = 1
-			focused_textbox.cursor = 0
+				focused_textbox.scroll = 1
+				focused_textbox.cursor = 0
 
-			got_focus = true
+				got_focus = true
+			end
 		end
 	end
 
@@ -1435,31 +1457,33 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection )
 	if #collection < num_visible_rows then scrollmax = 1 end
 	if listbox_state[ lst_idx ].scroll > scrollmax then listbox_state[ lst_idx ].scroll = scrollmax end
 
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		highlight_idx = math.floor( (last_off_y - bbox.y) / (text_h) ) + 1
-		highlight_idx = Clamp( highlight_idx, 1, #collection )
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			highlight_idx = math.floor( (last_off_y - bbox.y) / (text_h) ) + 1
+			highlight_idx = Clamp( highlight_idx, 1, #collection )
 
-		-- Select
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			listbox_state[ lst_idx ].selected_idx = highlight_idx + listbox_state[ lst_idx ].scroll - 1
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			result = true
-		end
+			-- Select
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				listbox_state[ lst_idx ].selected_idx = highlight_idx + listbox_state[ lst_idx ].scroll - 1
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				result = true
+			end
 
-		-- Scroll
-		local thumb_x, thumb_y = lovr.headset.getAxis( dominant_hand, "thumbstick" )
-		if thumb_y > 0.7 then
-			listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll - 1
-			listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
-		end
+			-- Scroll
+			local thumb_x, thumb_y = lovr.headset.getAxis( dominant_hand, "thumbstick" )
+			if thumb_y > 0.7 then
+				listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll - 1
+				listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
+			end
 
-		if thumb_y < -0.7 then
-			listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll + 1
-			listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
+			if thumb_y < -0.7 then
+				listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll + 1
+				listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
+			end
 		end
 	end
 
@@ -1562,16 +1586,17 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 
 	local thumb_w = text_h
 	local col = colors.slider_bg
-	local cur_window = windows[ #windows ]
 	local result = false
 
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col = colors.slider_bg_hover
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col = colors.slider_bg_hover
 
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			end
 		end
 	end
 
@@ -1661,16 +1686,17 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 
 	local thumb_w = text_h
 	local col = colors.slider_bg
-	local cur_window = windows[ #windows ]
 	local result = false
 
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col = colors.slider_bg_hover
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col = colors.slider_bg_hover
 
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			end
 		end
 	end
 
@@ -1742,17 +1768,19 @@ function UI.CheckBox( text, checked )
 
 	local result = false
 	local col = colors.check_border
-	local cur_window = windows[ #windows ]
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col = colors.check_border_hover
 
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			result = true
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col = colors.check_border_hover
+
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				result = true
+			end
 		end
 	end
 
@@ -1787,17 +1815,19 @@ function UI.RadioButton( text, checked )
 
 	local result = false
 	local col = colors.radio_border
-	local cur_window = windows[ #windows ]
-	if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-		hotID = my_id
-		col = colors.radio_border_hover
 
-		if input.trigger == e_trigger.pressed then
-			activeID = my_id
-		end
-		if input.trigger == e_trigger.released and hotID == activeID then
-			lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
-			result = true
+	if not modal_window or (modal_window and modal_window == cur_window.id) then
+		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
+			hotID = my_id
+			col = colors.radio_border_hover
+
+			if input.trigger == e_trigger.pressed then
+				activeID = my_id
+			end
+			if input.trigger == e_trigger.released and hotID == activeID then
+				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				result = true
+			end
 		end
 	end
 

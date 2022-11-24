@@ -32,6 +32,7 @@
  - Dummy
  - ProgressBar
  - WhiteBoard
+ - Modal window
 
 ---
 `UI.Button(text, width, height)`
@@ -179,14 +180,15 @@ NOTE: To set the state on a group of RadioButtons use this idiom:
 NOTE: This is an invisible widget useful only to "push" other widgets' positions or to leave a desired gap.
 
 ---
-`UI.Begin(name, transform)`
+`UI.Begin(name, transform, is_modal)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`name`|string|window ID
 |`transform`|Mat4|window transform
+|`is_modal` _[opt]_|boolean|is this a modal window
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: Starts a new window. Every widget call after this function will belong to this window, until `UI.End(main_pass)` is called.
+NOTE: Starts a new window. Every widget call after this function will belong to this window, until `UI.End(main_pass)` is called. If this is set as a modal window (by passing true to the last argument) it should always call `UI.EndModalWindow` before closing it physically. (see example in main.lua)
 
 ---
 `UI.End(main_pass)`
@@ -195,7 +197,7 @@ NOTE: Starts a new window. Every widget call after this function will belong to 
 |`main_pass`|Pass|the main Pass object
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
-NOTE: lovr-ui submits the main pass (along it's own passes) every frame.
+NOTE: Ends the current window. 
 
 ---
 `UI.SameLine()`
@@ -323,6 +325,15 @@ NOTE: Helper to override a color value.
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
 NOTE: Sets a theme to one of the built-in ones ("dark", "light") if the passed argument is a string. Also accepts a table of colors. If the passed table doesn't contain all of the keys, the rest of them will be copied from the built-in theme of the `copy_from` argument.
+
+---
+`UI.CloseModalWindow()`
+|Argument|Type|Description
+|:---|:---|:---|
+|`none`||
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Closes a modal window
 
 ---
 `UI.AddKeyboardPack(lower_case, upper_case, symbols)`
