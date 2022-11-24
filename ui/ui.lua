@@ -1454,10 +1454,10 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 
 	if lst_idx == nil then
 		local selected_idx = 1
-		if (type(selected)=="number") then selected_idx = selected
-		elseif (type(selected)=="string") then
-			for i=1,#collection do
-				if selected == collection[i] then
+		if (type( selected ) == "number") then selected_idx = selected
+		elseif (type( selected ) == "string") then
+			for i = 1, #collection do
+				if selected == collection[ i ] then
 					selected_idx = i
 					break
 				end

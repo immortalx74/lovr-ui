@@ -80,13 +80,14 @@ like plane, circle, text, etc. X and Y are the local 2D coordinates of the point
 NOTE: When clicked, an on-screen keyboard will pop-up for text entry. Enter closes the keyboard. To modify the original buffer assign the 4th return value back to the original buffer variable. The ID returned can be passed in the helper function `UI.SetTextBoxText` to set the desired text after validation. (example in main.lua) 
 
 ---
-`UI.ListBox(name, num_rows, num_visible_chars, collection)`
+`UI.ListBox(name, num_rows, num_visible_chars, collection, selected)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`name`|string|listbox ID
 |`num__visible_rows`|number|number of visible rows
 |`num_visible_chars`|number|number of visible characters on each row
 |`collection`|table|table of strings
+|`selected` _[opt]_|number or string|selected item index (in case it's a string, selects the 1st occurence of the item that matches the string)
 
 <span style="color:DeepSkyBlue">Returns:</span> `boolean`, `number`, [1] true when clicked, [2] the selected item index  
 
