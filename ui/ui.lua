@@ -1058,7 +1058,7 @@ function UI.ProgressBar( progress, width )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = bbox, color = colors.text } )
 end
 
-function UI.ImageButton( img_filename, width, height )
+function UI.ImageButton( img_filename, width, height, text )
 	local cur_window = windows[ #windows ]
 	local my_id = Hash( cur_window.name .. img_filename )
 	local ib_idx = FindId( image_buttons, my_id )
@@ -1081,6 +1081,19 @@ function UI.ImageButton( img_filename, width, height )
 		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = ib.w, h = ib.h }
 	end
 
+
+	local text_w, text_h
+
+	if text then
+		text_w = font.handle:getWidth( text )
+		text_h = font.handle:getHeight()
+
+		if text_h > bbox.h then
+			bbox.h = text_h
+		end
+		bbox.w = bbox.w + (2 * margin) + text_w
+	end
+
 	UpdateLayout( bbox )
 
 	local result = false
@@ -1099,7 +1112,14 @@ function UI.ImageButton( img_filename, width, height )
 		end
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
+	if text then
+		table.insert( windows[ #windows ].command_list,
+			{ type = "image", bbox = { x = bbox.x, y = bbox.y + ((bbox.h - ib.h) / 2), w = ib.w, h = ib.h }, texture = ib.texture, color = { 1, 1, 1 } } )
+		table.insert( windows[ #windows ].command_list,
+			{ type = "text", text = text, bbox = { x = bbox.x + ib.w, y = bbox.y, w = text_w + (2 * margin), h = bbox.h }, color = colors.text } )
+	else
+		table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
+	end
 
 	return result
 end

@@ -148,9 +148,7 @@ function lovr.draw( pass )
 	local lh_pose = lovr.math.newMat4( lovr.headset.getPose( "hand/left" ) )
 	lh_pose:rotate( -math.pi / 2, 1, 0, 0 )
 	UI.Begin( "FirstWindow", mat4( -0.5, 1.4, -1 ) )
-	if UI.ImageButton( "ui/lovrlogo.png" ) then print( "imagebutton" ) end
-	UI.SameLine()
-	UI.Label( "<- An ImageButton" )
+	if UI.ImageButton( "ui/lovrlogo.png", 64, 64, "ImageButton" ) then print( "imagebutton" ) end
 
 	local old_buf = buf
 	local got_focus, buffer_changed, textbox_id

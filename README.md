@@ -46,12 +46,13 @@
 NOTE:  if no `width` and/or `height` are provided, the button size will be auto-calculated based on text. Otherwise, it will be set to `width` X `height` (with the text centered) or ignored if that size doesn't fit the text. 
 
 ---
-`UI.ImageButton(img_filename, width, height)`
+`UI.ImageButton(img_filename, width, height, text)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`img_filename`|string|image filename
 |`width`|number|image width in pixels
 |`height`|number|image height in pixels
+|`text` _[opt]_|string|optional text
 
 <span style="color:DeepSkyBlue">Returns:</span> `boolean` , true when clicked.  
 
