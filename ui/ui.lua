@@ -1447,13 +1447,23 @@ function UI.TextBox( name, num_visible_chars, buffer )
 	return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
 end
 
-function UI.ListBox( name, num_visible_rows, num_visible_chars, collection )
+function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, selected )
 	local cur_window = windows[ #windows ]
 	local my_id = Hash( cur_window.name .. name )
 	local lst_idx = FindId( listbox_state, my_id )
 
 	if lst_idx == nil then
-		local l = { id = my_id, scroll = 1, selected_idx = 1 }
+		local selected_idx = 1
+		if (type(selected)=="number") then selected_idx = selected
+		elseif (type(selected)=="string") then
+			for i=1,#collection do
+				if selected == collection[i] then
+					selected_idx = i
+					break
+				end
+			end
+		end
+		local l = { id = my_id, scroll = 1, selected_idx = selected_idx }
 		table.insert( listbox_state, l )
 		lst_idx = #listbox_state
 	end
