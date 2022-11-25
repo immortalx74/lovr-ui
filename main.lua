@@ -175,6 +175,7 @@ function lovr.draw( pass )
 		check1 = not check1
 	end
 	UI.Label( "Hello world in Greek: Γεια σου κόσμε!" )
+	UI.Separator()
 	local s1, s2
 	s1, slider_int_val = UI.SliderInt( "SliderInt", slider_int_val, -100, 100, 400 )
 	s2, slider_float_val = UI.SliderFloat( "SliderFloat", slider_float_val, -100, 100, 400, 3 )

@@ -37,6 +37,7 @@ local focused_slider = nil
 local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
+local separator_thickness = 4
 local ui_scale = 0.0005
 local new_scale = nil
 local controller_vibrate = false
@@ -100,7 +101,8 @@ color_themes.dark =
 	progress_bar_border = { 0, 0, 0 },
 	osk_mode_bg = { 0, 0, 0 },
 	osk_highlight = { 1, 1, 1 },
-	modal_tint = { 0.3, 0.3, 0.3 }
+	modal_tint = { 0.3, 0.3, 0.3 },
+	separator = { 0, 0, 0 }
 }
 
 color_themes.light =
@@ -139,7 +141,8 @@ color_themes.light =
 	button_border = { 0.000, 0.000, 0.000 },
 	osk_mode_bg = { 0.5, 0.5, 0.5 },
 	osk_highlight = { 0.1, 0.1, 0.1 },
-	modal_tint = { 0.15, 0.15, 0.15 }
+	modal_tint = { 0.15, 0.15, 0.15 },
+	separator = { 0.5, 0.5, 0.5 }
 }
 
 local colors = color_themes.dark
@@ -962,9 +965,15 @@ function UI.End( main_pass )
 
 	for i, v in ipairs( cur_window.command_list ) do
 		if v.type == "rect_fill" then
-			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, v.bbox.h, 0 ) )
-			cur_window.pass:setColor( v.color )
-			cur_window.pass:plane( m, "fill" )
+			if v.is_separator then
+				cur_window.pass:setColor( v.color )
+				local m = lovr.math.newMat4( vec3( v.bbox.x + (cur_window.w / 2), v.bbox.y, 0 ), vec3( cur_window.w - (2 * margin), separator_thickness, 0 ) )
+				cur_window.pass:plane( m, "fill" )
+			else
+				cur_window.pass:setColor( v.color )
+				local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, v.bbox.h, 0 ) )
+				cur_window.pass:plane( m, "fill" )
+			end
 		elseif v.type == "rect_wire" then
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, v.bbox.h, 0 ) )
 			cur_window.pass:setColor( v.color )
@@ -1056,6 +1065,19 @@ function UI.ProgressBar( progress, width )
 		{ type = "rect_fill", bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = colors.progress_bar_bg } )
 	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.progress_bar_border } )
 	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = bbox, color = colors.text } )
+end
+
+function UI.Separator()
+	local bbox = {}
+	if layout.same_line then
+		return
+	else
+		bbox = { x = 0, y = layout.prev_y + layout.row_h + (margin / 2) - (separator_thickness / 2), w = 0, h = 0 }
+	end
+
+	UpdateLayout( bbox )
+
+	table.insert( windows[ #windows ].command_list, { is_separator = true, type = "rect_fill", bbox = bbox, color = colors.separator } )
 end
 
 function UI.ImageButton( img_filename, width, height, text )

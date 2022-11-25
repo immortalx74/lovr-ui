@@ -2,7 +2,7 @@
 ### An immediate mode VR GUI library for [LÖVR](https://lovr.org/)
 ![lovr-ui](https://i.imgur.com/Q5SHm3H.png)
 **How to use:**
- - Put the ui folder inside your project and do `UI = require "ui/ui"`
+ - Put the ui folder inside your project and require it: `UI = require "ui/ui"`
  - Initialize the library by calling `UI.Init()` on `lovr.load()`
  - Handle controller input by calling `UI.InputInfo()` on `lovr.update()`
  - Everything inside `NewFrame()`/`RenderFrame()` is your GUI
@@ -33,6 +33,7 @@
  - ProgressBar
  - WhiteBoard
  - Modal window
+ - Separator
 
 ---
 `UI.Button(text, width, height)`
@@ -80,11 +81,11 @@ like plane, circle, text, etc. X and Y are the local 2D coordinates of the point
 NOTE: When clicked, an on-screen keyboard will pop-up for text entry. Enter closes the keyboard. To modify the original buffer assign the 4th return value back to the original buffer variable. The ID returned can be passed in the helper function `UI.SetTextBoxText` to set the desired text after validation. (example in main.lua) 
 
 ---
-`UI.ListBox(name, num_rows, num_visible_chars, collection, selected)`
+`UI.ListBox(name, num_visible_rows, num_visible_chars, collection, selected)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`name`|string|listbox ID
-|`num__visible_rows`|number|number of visible rows
+|`num_visible_rows`|number|number of visible rows
 |`num_visible_chars`|number|number of visible characters on each row
 |`collection`|table|table of strings
 |`selected` _[opt]_|number or string|selected item index (in case it's a string, selects the 1st occurence of the item that matches the string)
@@ -138,6 +139,15 @@ If `width` is provided, it will be taken into account only if it exceeds the wid
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
 NOTE: Default width is 300 pixels
+
+---
+`UI.Separator()`
+|Argument|Type|Description
+|:---|:---|:---|
+|`none`||
+
+<span style="color:DeepSkyBlue">Returns:</span> `nothing`  
+NOTE: Horizontal Separator
 
 ---
 `UI.CheckBox(text, checked)`
@@ -253,7 +263,7 @@ NOTE: Useful if you want to set interaction on/off programmatically, without pre
 NOTE: Should be called on `lovr.load()`. Defaults are `hand/left`, `thumbstick`, `true`, `math.pi / 3` respectively.
 
 ---
-`UI.InputInfo()`
+`UI.InputInfo(emulated_headset, ray_position, ray_orientation)`
 |Argument|Type|Description
 |:---|:---|:---|
 |`emulated_headset` _[opt]_|boolean|emulated headset
