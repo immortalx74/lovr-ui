@@ -1762,16 +1762,21 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	return result, v
 end
 
-function UI.Label( text )
+function UI.Label( text, compact )
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
 	local num_lines = GetLineCount( text )
 
+	local mrg = (2 * margin)
+	if compact then
+		mrg = 0
+	end
+
 	local bbox = {}
 	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_w, h = (2 * margin) + (num_lines * text_h) }
+		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_w, h = mrg + (num_lines * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_w, h = (2 * margin) + (num_lines * text_h) }
+		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_w, h = mrg + (num_lines * text_h) }
 	end
 
 	UpdateLayout( bbox )

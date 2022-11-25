@@ -125,6 +125,7 @@ If `width` is provided, it will be taken into account only if it exceeds the wid
 |Argument|Type|Description
 |:---|:---|:---|
 |`text`|string|label text
+|`compact` _[opt]_|boolean|ignore vertical margins
 
 <span style="color:DeepSkyBlue">Returns:</span> `nothing`  
 
