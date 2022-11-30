@@ -1,2 +1,2 @@
-local root = (...):match('(.-)[^%./]*$')
-return require(root .. '/ui/ui')
+local root = (...):gsub('/', '.'):gsub('%.init$', '')
+return require(root .. '.ui.ui')
