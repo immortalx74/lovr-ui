@@ -1008,13 +1008,12 @@ function UI.End( main_pass )
 	main_pass:setMaterial( cur_window.texture )
 	cur_window.unscaled_transform = lovr.math.newMat4( cur_window.transform )
 
-	if cur_window.id == hovered_window_id then
+	if cur_window.id == hovered_window_id and not window_drag.is_dragging then
 		if lovr.headset.wasPressed( dominant_hand, "grip" ) then
 			window_drag.offset:set( mat4( ray.pos, ray.ori ):invert() * cur_window.transform )
-		end
-		if lovr.headset.isDown( dominant_hand, "grip" ) then
 			window_drag.id = cur_window.id
 			window_drag.is_dragging = true
+
 		end
 	end
 
