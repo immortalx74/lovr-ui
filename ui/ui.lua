@@ -34,6 +34,7 @@ local dominant_hand = "hand/right"
 local hovered_window_id = nil
 local focused_textbox = nil
 local focused_slider = nil
+local widget_counter = nil
 local last_off_x = -50000
 local last_off_y = -50000
 local margin = 14
@@ -319,6 +320,8 @@ local function UpdateLayout( bbox )
 	layout.prev_h = bbox.h
 	layout.same_line = false
 	layout.same_column = false
+
+	widget_counter = widget_counter + 1
 end
 
 local function GenerateOSKTextures()
@@ -927,6 +930,7 @@ function UI.Begin( name, transform, is_modal )
 	if is_modal then
 		modal_window = window.id
 	end
+	widget_counter = 1
 end
 
 function UI.End( main_pass )
@@ -1081,7 +1085,7 @@ end
 
 function UI.ImageButton( img_filename, width, height, text )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. img_filename )
+	local my_id = Hash( cur_window.name .. img_filename .. widget_counter )
 	local ib_idx = FindId( image_buttons, my_id )
 
 	if ib_idx == nil then
@@ -1147,7 +1151,7 @@ end
 
 function UI.WhiteBoard( name, width, height )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name )
+	local my_id = Hash( cur_window.name .. name .. widget_counter )
 	local wb_idx = FindId( whiteboards, my_id )
 
 	if wb_idx == nil then
@@ -1214,7 +1218,7 @@ end
 
 function UI.TabBar( name, tabs, idx )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name )
+	local my_id = Hash( cur_window.name .. name .. widget_counter )
 
 	local text_h = font.handle:getHeight()
 	local bbox = {}
@@ -1272,7 +1276,7 @@ end
 
 function UI.Button( text, width, height )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text )
+	local my_id = Hash( cur_window.name .. text .. widget_counter )
 
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
@@ -1321,7 +1325,7 @@ end
 
 function UI.TextBox( name, num_visible_chars, buffer )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name )
+	local my_id = Hash( cur_window.name .. name .. widget_counter )
 	local tb_idx = FindId( textbox_state, my_id )
 
 	if tb_idx == nil then
@@ -1470,7 +1474,7 @@ end
 
 function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, selected )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name )
+	local my_id = Hash( cur_window.name .. name .. widget_counter )
 	local lst_idx = FindId( listbox_state, my_id )
 
 	if lst_idx == nil then
@@ -1587,7 +1591,7 @@ end
 
 function UI.SliderInt( text, v, v_min, v_max, width )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text )
+	local my_id = Hash( cur_window.name .. text .. widget_counter )
 
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
@@ -1685,7 +1689,7 @@ end
 
 function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text )
+	local my_id = Hash( cur_window.name .. text .. widget_counter )
 
 	local text_w = font.handle:getWidth( text )
 	local text_h = font.handle:getHeight()
@@ -1807,7 +1811,7 @@ end
 
 function UI.CheckBox( text, checked )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text )
+	local my_id = Hash( cur_window.name .. text .. widget_counter )
 
 	local char_w = font.handle:getWidth( "W" )
 	local text_w = font.handle:getWidth( text )
@@ -1854,7 +1858,7 @@ end
 
 function UI.RadioButton( text, checked )
 	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text )
+	local my_id = Hash( cur_window.name .. text .. widget_counter )
 
 	local char_w = font.handle:getWidth( "W" )
 	local text_w = font.handle:getWidth( text )
