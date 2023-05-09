@@ -20,50 +20,55 @@ local UI = {}
 
 local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
 
-local e_trigger = {}
-e_trigger.idle = 1
-e_trigger.pressed = 2
-e_trigger.down = 3
-e_trigger.released = 4
+UI._ = {}
 
-local theme_changed = true
-local activeID = nil
-local hotID = nil
-local modal_window = nil
-local dominant_hand = "hand/right"
-local hovered_window_id = nil
-local focused_textbox = nil
-local focused_slider = nil
-local widget_counter = nil
-local last_off_x = -50000
-local last_off_y = -50000
-local margin = 14
-local separator_thickness = 4
-local ui_scale = 0.0005
-local new_scale = nil
-local controller_vibrate = false
-local image_buttons_default_ttl = 2
-local whiteboards_default_ttl = 2
-local utf8 = {}
-local font = { handle = nil, w = nil, h = nil, scale = 1 }
-local caret = { blink_rate = 50, counter = 0 }
-local listbox_state = {}
-local textbox_state = {}
-local ray = {}
-local windows = {}
-local passes = {}
-local textures = {}
-local image_buttons = {}
-local whiteboards = {}
-local color_themes = {}
-local texture_flags = { mipmaps = true, usage = { 'sample', 'render', 'transfer' } }
-local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
-local layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
-local input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = e_trigger.idle,
+local _ = UI._ --Allias for shorter access
+
+_.e_trigger = {}
+_.e_trigger.idle = 1
+_.e_trigger.pressed = 2
+_.e_trigger.down = 3
+_.e_trigger.released = 4
+
+_.theme_changed = true
+_.activeID = nil
+_.hotID = nil
+_.modal_window = nil
+_.dominant_hand = "hand/right"
+_.hovered_window_id = nil
+_.focused_textbox = nil
+_.focused_slider = nil
+_.widget_counter = nil
+_.last_off_x = -50000
+_.last_off_y = -50000
+_.margin = 14
+_.separator_thickness = 4
+_.ui_scale = 0.0005
+_.new_scale = nil
+_.controller_vibrate = false
+_.image_buttons_default_ttl = 2
+_.whiteboards_default_ttl = 2
+_.utf8 = {}
+_.font = { handle = nil, w = nil, h = nil, scale = 1 }
+_.caret = { blink_rate = 50, counter = 0 }
+_.listbox_state = {}
+_.textbox_state = {}
+_.ray = {}
+_.windows = {}
+_.passes = {}
+_.textures = {}
+_.image_buttons = {}
+_.whiteboards = {}
+_.layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
+_.input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = _.e_trigger.idle,
 	pointer_rotation = math.pi / 3 }
 local osk = { visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), packs = {}, cur_mode = 1, cur_pack = 1,
 	last_key = nil }
 local clamp_sampler = lovr.graphics.newSampler( { wrap = 'clamp' } )
+local color_themes = {}
+local texture_flags = { mipmaps = true, usage = { 'sample', 'render', 'transfer' } }
+local window_drag = { id = nil, is_dragging = false, offset = lovr.math.newMat4() }
+
 osk.packs[ 1 ] = { mode = {}, textures = {} }
 
 color_themes.dark =
@@ -146,7 +151,7 @@ color_themes.light =
 	separator = { 0.5, 0.5, 0.5 }
 }
 
-local colors = color_themes.dark
+_.colors = color_themes.dark
 
 osk.packs[ 1 ].mode[ 1 ] =
 {
@@ -177,7 +182,7 @@ osk.packs[ 1 ].mode[ 3 ] =
 -- -------------------------------------------------------------------------- --
 --                             Internals                                      --
 -- -------------------------------------------------------------------------- --
-local function Clamp( n, n_min, n_max )
+function _.Clamp( n, n_min, n_max )
 	if n < n_min then n = n_min
 	elseif n > n_max then n = n_max
 	end
@@ -185,7 +190,7 @@ local function Clamp( n, n_min, n_max )
 	return n
 end
 
-local function GetLineCount( str )
+function _.GetLineCount( str )
 	-- https://stackoverflow.com/questions/24690910/how-to-get-lines-count-in-string/70137660#70137660
 	local lines = 1
 	for i = 1, #str do
@@ -196,7 +201,7 @@ local function GetLineCount( str )
 	return lines
 end
 
-local function FindId( t, id )
+function _.FindId( t, id )
 	for i, v in ipairs( t ) do
 		if v.id == id then
 			return i
@@ -205,13 +210,13 @@ local function FindId( t, id )
 	return nil
 end
 
-local function ClearTable( t )
+function _.ClearTable( t )
 	for i, v in ipairs( t ) do
 		t[ i ] = nil
 	end
 end
 
-local function PointInRect( px, py, rx, ry, rw, rh )
+function _.PointInRect( px, py, rx, ry, rw, rh )
 	if px >= rx and px <= rx + rw and py >= ry and py <= ry + rh then
 		return true
 	end
@@ -219,11 +224,11 @@ local function PointInRect( px, py, rx, ry, rw, rh )
 	return false
 end
 
-local function MapRange( from_min, from_max, to_min, to_max, v )
+function _.MapRange( from_min, from_max, to_min, to_max, v )
 	return (v - from_min) * (to_max - to_min) / (from_max - from_min) + to_min
 end
 
-local function Hash( o )
+function _.Hash( o )
 	-- From: https://github.com/Alloyed/ltrie/blob/master/ltrie/lua_hashcode.lua
 	local b = require 'bit'
 	local t = type( o )
@@ -257,7 +262,7 @@ local function Hash( o )
 	return nil
 end
 
-local function Raycast( pos, dir, transform )
+function _.Raycast( pos, dir, transform )
 	local inverse = mat4( transform ):invert()
 
 	-- Transform ray into plane space
@@ -272,56 +277,56 @@ local function Raycast( pos, dir, transform )
 	end
 end
 
-local function DrawRay( pass )
-	if ray.target then
+function _.DrawRay( pass )
+	if _.ray.target then
 		pass:setColor( 1, 1, 1 )
-		pass:line( ray.pos, ray.hit and (ray.target * ray.hit) )
+		pass:line( _.ray.pos, _.ray.hit and (_.ray.target * _.ray.hit) )
 		pass:setColor( 0, 1, 0 )
-		pass:sphere( ray.target * ray.hit, .004 )
+		pass:sphere( _.ray.target * _.ray.hit, .004 )
 	else
 		pass:setColor( 1, 1, 1 )
-		pass:line( ray.pos, ray.pos + ray.dir * 10 )
+		pass:line( _.ray.pos, _.ray.pos + _.ray.dir * 10 )
 	end
 end
 
-local function ResetLayout()
-	layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
+function _.ResetLayout()
+	_.layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
 end
 
-local function UpdateLayout( bbox )
+function _.UpdateLayout( bbox )
 	-- Update row height
-	if layout.same_line then
-		if bbox.h > layout.row_h then
-			layout.row_h = bbox.h
+	if _.layout.same_line then
+		if bbox.h > _.layout.row_h then
+			_.layout.row_h = bbox.h
 		end
-	elseif layout.same_column then
-		if bbox.h + layout.prev_h + margin < layout.row_h then
-			layout.row_h = layout.row_h - layout.prev_h - margin
+	elseif _.layout.same_column then
+		if bbox.h + _.layout.prev_h + _.margin < _.layout.row_h then
+			_.layout.row_h = _.layout.row_h - _.layout.prev_h - _.margin
 		else
-			layout.row_h = bbox.h
+			_.layout.row_h = bbox.h
 		end
 	else
-		layout.row_h = bbox.h
+		_.layout.row_h = bbox.h
 	end
 
-	-- Calculate current layout w/h
-	if bbox.x + bbox.w + margin > layout.total_w then
-		layout.total_w = bbox.x + bbox.w + margin
+	-- Calculate current _.layout w/h
+	if bbox.x + bbox.w + _.margin > _.layout.total_w then
+		_.layout.total_w = bbox.x + bbox.w + _.margin
 	end
 
-	if bbox.y + layout.row_h + margin > layout.total_h then
-		layout.total_h = bbox.y + layout.row_h + margin
+	if bbox.y + _.layout.row_h + _.margin > _.layout.total_h then
+		_.layout.total_h = bbox.y + _.layout.row_h + _.margin
 	end
 
-	-- Update layout prev_x/y/w/h and same_line
-	layout.prev_x = bbox.x
-	layout.prev_y = bbox.y
-	layout.prev_w = bbox.w
-	layout.prev_h = bbox.h
-	layout.same_line = false
-	layout.same_column = false
+	-- Update _.layout prev_x/y/w/h and same_line
+	_.layout.prev_x = bbox.x
+	_.layout.prev_y = bbox.y
+	_.layout.prev_w = bbox.w
+	_.layout.prev_h = bbox.h
+	_.layout.same_line = false
+	_.layout.same_column = false
 
-	widget_counter = widget_counter + 1
+	_.widget_counter = _.widget_counter + 1
 end
 
 local function GenerateOSKTextures()
@@ -330,12 +335,12 @@ local function GenerateOSKTextures()
 	for pk = 1, #osk.packs do
 		for md = 1, 3 do
 			local p = lovr.graphics.getPass( 'render', { osk.packs[ pk ].textures[ md ], mipmap = true } )
-			p:setFont( font.handle )
+			p:setFont( _.font.handle )
 			p:setDepthTest( nil )
 			p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
-			p:setColor( colors.window_bg )
+			p:setColor( _.colors.window_bg )
 			p:fill()
-			p:setColor( colors.window_border )
+			p:setColor( _.colors.window_border )
 			p:plane( mat4( vec3( 320, 160, 0 ), vec3( 640, 320, 0 ) ), "line" )
 
 			local x_off = 0
@@ -345,78 +350,78 @@ local function GenerateOSKTextures()
 			for i, v in ipairs( osk.packs[ pk ].mode[ md ] ) do
 				if i == 31 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
-					if md == 2 then p:setColor( colors.osk_mode_bg ) end
+					p:setColor( _.colors.button_bg )
+					if md == 2 then p:setColor( _.colors.osk_mode_bg ) end
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 64 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "⇧", m )
 				elseif i == 40 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 64 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "⌫", m )
 				elseif i == 41 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
-					if md == 3 then p:setColor( colors.osk_mode_bg ) end
+					p:setColor( _.colors.button_bg )
+					if md == 3 then p:setColor( _.colors.osk_mode_bg ) end
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 22 * ui_scale, 22 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 22 * _.ui_scale, 22 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "123?", m )
 				elseif i == 42 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 64 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "←", m )
 				elseif i == 43 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 64 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 64 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "→", m )
 				elseif i == 45 then
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 184, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 32 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "̶", m )
 				elseif i == 49 then
 					local m = mat4( vec3( (count * 32) + x_off + 32, y_off, 0 ), vec3( 118, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 32 * ui_scale, 64 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 32 * _.ui_scale, 64 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( "⏎", m )
 				elseif i == 44 or i == 46 or i == 50 then -- skip those
 				else
 					local m = mat4( vec3( (count * 32) + x_off, y_off, 0 ), vec3( 56, 56, 0 ) )
-					p:setColor( colors.button_bg )
+					p:setColor( _.colors.button_bg )
 					p:plane( m, "fill" )
-					p:setColor( colors.button_border )
+					p:setColor( _.colors.button_border )
 					p:plane( m, "line" )
-					m:scale( vec3( 32 * ui_scale, 32 * ui_scale, 0 ) )
-					p:setColor( colors.text )
+					m:scale( vec3( 32 * _.ui_scale, 32 * _.ui_scale, 0 ) )
+					p:setColor( _.colors.text )
 					p:text( v, m )
 				end
 
@@ -431,7 +436,7 @@ local function GenerateOSKTextures()
 			end
 
 			p:plane( m, "fill" )
-			table.insert( passes, p )
+			table.insert( _.passes, p )
 		end
 	end
 	return passes
@@ -447,20 +452,20 @@ local function ShowOSK( pass )
 	osk.prev_frame_visible = true
 	osk.last_key = nil
 
-	local window = { id = Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
+	local window = { id = _.Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
 		texture = osk.packs[ osk.cur_pack ].textures[ osk.cur_mode ], pass = pass, is_hovered = false }
 
-	table.insert( windows, 1, window ) -- NOTE: Insert on top. Does it make any difference?
+	table.insert( _.windows, 1, window ) -- NOTE: Insert on top. Does it make any difference?
 
 	local x_off
 	local y_off
 
-	if window.id == hovered_window_id then
-		x_off = math.floor( last_off_x / 64 ) + 1
-		y_off = math.floor( (last_off_y) / 64 )
-		if input.trigger == e_trigger.pressed then
-			if focused_textbox or focused_slider then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+	if window.id == _.hovered_window_id then
+		x_off = math.floor( _.last_off_x / 64 ) + 1
+		y_off = math.floor( (_.last_off_y) / 64 )
+		if _.input.trigger == _.e_trigger.pressed then
+			if _.focused_textbox or _.focused_slider then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				local btn = osk.packs[ osk.cur_pack ].mode[ osk.cur_mode ][ math.floor( x_off + (y_off * 10) ) ]
 
 				if btn == "shift" then
@@ -485,12 +490,12 @@ local function ShowOSK( pass )
 					osk.last_key = "return"
 					osk.prev_frame_visible = false
 					osk.visible = false
-					focused_textbox = nil
-					focused_slider = nil
+					_.focused_textbox = nil
+					_.focused_slider = nil
 				elseif btn == "backspace" then
 					osk.last_key = "backspace"
 				else
-					if lovr.headset.isDown( dominant_hand, "grip" ) and btn == " " then
+					if lovr.headset.isDown( _.dominant_hand, "grip" ) and btn == " " then
 						if osk.cur_pack < #osk.packs then
 							osk.cur_pack = osk.cur_pack + 1
 						else
@@ -505,26 +510,26 @@ local function ShowOSK( pass )
 	end
 
 	window.unscaled_transform = lovr.math.newMat4( window.transform )
-	local window_m = lovr.math.newMat4( window.unscaled_transform:scale( window.w * ui_scale, window.h * ui_scale ) )
+	local window_m = lovr.math.newMat4( window.unscaled_transform:scale( window.w * _.ui_scale, window.h * _.ui_scale ) )
 
 	-- Highlight hovered button
 	if x_off then
-		pass:setColor( colors.osk_highlight )
-		local m = lovr.math.newMat4( window.transform ):translate( vec3( (-352 * ui_scale), 128 * ui_scale, 0.001 ) ) -- 320 + 32, 160 - 32
+		pass:setColor( _.colors.osk_highlight )
+		local m = lovr.math.newMat4( window.transform ):translate( vec3( (-352 * _.ui_scale), 128 * _.ui_scale, 0.001 ) ) -- 320 + 32, 160 - 32
 
 		-- Space and Return are wider
 		local spc = x_off >= 4 and x_off <= 6 and y_off == 4
 		local rtn = x_off >= 9 and x_off <= 10 and y_off == 4
 
 		if spc then
-			m:translate( 5 * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
-			m:scale( 192 * ui_scale, 64 * ui_scale, 1 )
+			m:translate( 5 * 64 * _.ui_scale, -(y_off * 64 * _.ui_scale), 0 )
+			m:scale( 192 * _.ui_scale, 64 * _.ui_scale, 1 )
 		elseif rtn then
-			m:translate( 9.5 * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
-			m:scale( 128 * ui_scale, 64 * ui_scale, 1 )
+			m:translate( 9.5 * 64 * _.ui_scale, -(y_off * 64 * _.ui_scale), 0 )
+			m:scale( 128 * _.ui_scale, 64 * _.ui_scale, 1 )
 		else
-			m:translate( x_off * 64 * ui_scale, -(y_off * 64 * ui_scale), 0 )
-			m:scale( 64 * ui_scale, 64 * ui_scale, 1 )
+			m:translate( x_off * 64 * _.ui_scale, -(y_off * 64 * _.ui_scale), 0 )
+			m:scale( 64 * _.ui_scale, 64 * _.ui_scale, 1 )
 		end
 
 		pass:plane( m, "line" )
@@ -537,7 +542,7 @@ end
 
 -- Partially embeded functions from https://github.com/meepen/Lua-5.1-UTF-8
 -- License: Creative Commons Zero v1.0 Universal
-function utf8.strRelToAbs( str, ... )
+function _.utf8.strRelToAbs( str, ... )
 	local args = { ... }
 
 	for k, v in ipairs( args ) do
@@ -551,8 +556,8 @@ function utf8.strRelToAbs( str, ... )
 	return unpack( args )
 end
 
-function utf8.decode( str, startPos )
-	startPos = utf8.strRelToAbs( str, startPos or 1 )
+function _.utf8.decode( str, startPos )
+	startPos = _.utf8.strRelToAbs( str, startPos or 1 )
 	local b1 = str:byte( startPos, startPos )
 
 	-- Single-byte sequence
@@ -583,13 +588,13 @@ function utf8.decode( str, startPos )
 	return startPos, endPos
 end
 
-function utf8.len( str, startPos, endPos )
+function _.utf8.len( str, startPos, endPos )
 	if str == "" then return 0 end
-	startPos, endPos = utf8.strRelToAbs( str, startPos or 1, endPos or -1 )
+	startPos, endPos = _.utf8.strRelToAbs( str, startPos or 1, endPos or -1 )
 	local len = 0
 
 	repeat
-		local seqStartPos, seqEndPos = utf8.decode( str, startPos )
+		local seqStartPos, seqEndPos = _.utf8.decode( str, startPos )
 
 		-- Hit an invalid sequence?
 		if not seqStartPos then
@@ -606,14 +611,14 @@ function utf8.len( str, startPos, endPos )
 	return len
 end
 
-function utf8.offset( str, n, startPos )
-	startPos = utf8.strRelToAbs( str, startPos or (n >= 0 and 1) or #str )
+function _.utf8.offset( str, n, startPos )
+	startPos = _.utf8.strRelToAbs( str, startPos or (n >= 0 and 1) or #str )
 
 	-- Find the beginning of the sequence over startPos
 	if n == 0 then
 
 		for i = startPos, 1, -1 do
-			local seqStartPos, seqEndPos = utf8.decode( str, i )
+			local seqStartPos, seqEndPos = _.utf8.decode( str, i )
 			if seqStartPos then
 				return seqStartPos
 			end
@@ -621,7 +626,7 @@ function utf8.offset( str, n, startPos )
 		return nil
 	end
 
-	if not utf8.decode( str, startPos ) then
+	if not _.utf8.decode( str, startPos ) then
 		error( "initial position is not beginning of a valid sequence", 2 )
 	end
 
@@ -639,7 +644,7 @@ function utf8.offset( str, n, startPos )
 	end
 
 	for i = itStart, itEnd, itStep do
-		local seqStartPos, seqEndPos = utf8.decode( str, i )
+		local seqStartPos, seqEndPos = _.utf8.decode( str, i )
 		if seqStartPos then
 			n = n - 1
 			if n == 0 then
@@ -651,22 +656,22 @@ function utf8.offset( str, n, startPos )
 	return nil
 end
 
-function utf8.sub( text, s_pos, e_pos )
+function _.utf8.sub( text, s_pos, e_pos )
 	if e_pos == -1 then
-		e_pos = utf8.len( text, 1, -1 )
+		e_pos = _.utf8.len( text, 1, -1 )
 	end
 	if s_pos > e_pos then
 		return ""
 	end
 
-	local start_offset_byte = utf8.offset( text, s_pos )
-	local end_offset_byte = utf8.offset( text, e_pos )
+	local start_offset_byte = _.utf8.offset( text, s_pos )
+	local end_offset_byte = _.utf8.offset( text, e_pos )
 
 	if end_offset_byte == nil then
 		end_offset_byte = e_pos
 	end
 
-	local char_start, char_end = utf8.decode( text, end_offset_byte )
+	local char_start, char_end = _.utf8.decode( text, end_offset_byte )
 
 	if char_end == nil then
 		char_end = 0
@@ -682,7 +687,7 @@ end
 --                                User                                        --
 -- -------------------------------------------------------------------------- --
 function UI.EndModalWindow()
-	modal_window = nil
+	_.modal_window = nil
 end
 
 function UI.AddKeyboardPack( lower_case, upper_case, symbols )
@@ -701,46 +706,46 @@ function UI.AddKeyboardPack( lower_case, upper_case, symbols )
 end
 
 function UI.GetScale()
-	return ui_scale
+	return _.ui_scale
 end
 
 function UI.SetScale( scale )
-	new_scale = scale
+	_.new_scale = scale
 end
 
 function UI.SetTextBoxText( id, text )
-	local idx = FindId( textbox_state, id )
-	textbox_state[ idx ].text = text
-	if utf8.len( textbox_state[ idx ].text, 1 ) > textbox_state[ idx ].num_visible_chars then
-		textbox_state[ idx ].scroll = utf8.len( textbox_state[ idx ].text, 1 ) - textbox_state[ idx ].num_visible_chars + 1
+	local idx = _.FindId( _.textbox_state, id )
+	_.textbox_state[ idx ].text = text
+	if _.utf8.len( _.textbox_state[ idx ].text, 1 ) > _.textbox_state[ idx ].num_visible_chars then
+		_.textbox_state[ idx ].scroll = _.utf8.len( _.textbox_state[ idx ].text, 1 ) - _.textbox_state[ idx ].num_visible_chars + 1
 	end
-	textbox_state[ idx ].cursor = textbox_state[ idx ].text:len()
+	_.textbox_state[ idx ].cursor = _.textbox_state[ idx ].text:len()
 end
 
 function UI.GetColorNames()
 	local t = {}
-	for i, v in pairs( colors ) do
+	for i, v in pairs( _.colors ) do
 		t[ #t + 1 ] = tostring( i )
 	end
 	return t
 end
 
 function UI.GetColor( col_name )
-	return colors[ col_name ]
+	return _.colors[ col_name ]
 end
 
 function UI.SetColor( col_name, color )
-	colors[ col_name ] = color
-	theme_changed = true
+	_.colors[ col_name ] = color
+	_.theme_changed = true
 end
 
 function UI.OverrideColor( col_name, color )
-	colors[ col_name ] = color
+	_.colors[ col_name ] = color
 end
 
 function UI.SetColorTheme( theme, copy_from )
 	if type( theme ) == "string" then
-		colors = color_themes[ theme ]
+		_.colors = color_themes[ theme ]
 	elseif type( theme ) == "table" then
 		copy_from = copy_from or "dark"
 		for i, v in pairs( color_themes[ copy_from ] ) do
@@ -748,126 +753,126 @@ function UI.SetColorTheme( theme, copy_from )
 				theme[ i ] = v
 			end
 		end
-		colors = theme
+		_.colors = theme
 	end
 
-	theme_changed = true
+	_.theme_changed = true
 end
 
 function UI.GetWindowSize( name )
-	local idx = FindId( windows, Hash( name ) )
+	local idx = _.FindId( _.windows, _.Hash( name ) )
 	if idx ~= nil then
-		return windows[ idx ].w * ui_scale, windows[ idx ].h * ui_scale
+		return _.windows[ idx ].w * _.ui_scale, _.windows[ idx ].h * _.ui_scale
 	end
 
 	return nil
 end
 
 function UI.IsInteractionEnabled()
-	return input.interaction_enabled
+	return _.input.interaction_enabled
 end
 
 function UI.SetInteractionEnabled( enabled )
-	input.interaction_enabled = enabled
+	_.input.interaction_enabled = enabled
 	if not enabled then
-		hovered_window_id = nil
+		_.hovered_window_id = nil
 	end
 end
 
 function UI.InputInfo( emulated_headset, ray_position, ray_orientation )
-	if lovr.headset.wasPressed( input.interaction_toggle_device, input.interaction_toggle_button ) then
-		input.interaction_enabled = not input.interaction_enabled
-		hovered_window_id = nil
+	if lovr.headset.wasPressed( _.input.interaction_toggle_device, _.input.interaction_toggle_button ) then
+		_.input.interaction_enabled = not _.input.interaction_enabled
+		_.hovered_window_id = nil
 	end
 
 	if lovr.headset.wasPressed( "hand/left", "trigger" ) then
-		dominant_hand = "hand/left"
+		_.dominant_hand = "hand/left"
 	elseif lovr.headset.wasPressed( "hand/right", "trigger" ) then
-		dominant_hand = "hand/right"
+		_.dominant_hand = "hand/right"
 	end
 
-	if lovr.headset.wasPressed( dominant_hand, "trigger" ) then
-		input.trigger = e_trigger.pressed
-	elseif lovr.headset.isDown( dominant_hand, "trigger" ) then
-		input.trigger = e_trigger.down
-	elseif lovr.headset.wasReleased( dominant_hand, "trigger" ) then
-		input.trigger = e_trigger.released
-	elseif not lovr.headset.wasReleased( dominant_hand, "trigger" ) then
-		input.trigger = e_trigger.idle
+	if lovr.headset.wasPressed( _.dominant_hand, "trigger" ) then
+		_.input.trigger = _.e_trigger.pressed
+	elseif lovr.headset.isDown( _.dominant_hand, "trigger" ) then
+		_.input.trigger = _.e_trigger.down
+	elseif lovr.headset.wasReleased( _.dominant_hand, "trigger" ) then
+		_.input.trigger = _.e_trigger.released
+	elseif not lovr.headset.wasReleased( _.dominant_hand, "trigger" ) then
+		_.input.trigger = _.e_trigger.idle
 	end
 
 	if emulated_headset then
 		if ray_position and ray_orientation then
-			ray.pos = vec3( ray_position.x, ray_position.y, ray_position.z )
-			ray.ori = quat( ray_orientation )
-			local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( 0, 1, 0, 0 )
-			ray.dir = quat( m ):direction()
+			_.ray.pos = vec3( ray_position.x, ray_position.y, ray_position.z )
+			_.ray.ori = quat( ray_orientation )
+			local m = mat4( vec3( 0, 0, 0 ), _.ray.ori ):rotate( 0, 1, 0, 0 )
+			_.ray.dir = quat( m ):direction()
 		else
-			ray.pos = vec3( lovr.headset.getPosition( "head" ) )
-			ray.ori = quat( lovr.headset.getOrientation( "head" ) )
-			local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( 0, 1, 0, 0 )
-			ray.dir = quat( m ):direction()
+			_.ray.pos = vec3( lovr.headset.getPosition( "head" ) )
+			_.ray.ori = quat( lovr.headset.getOrientation( "head" ) )
+			local m = mat4( vec3( 0, 0, 0 ), _.ray.ori ):rotate( 0, 1, 0, 0 )
+			_.ray.dir = quat( m ):direction()
 		end
 	else
-		ray.pos = vec3( lovr.headset.getPosition( dominant_hand ) )
-		ray.ori = quat( lovr.headset.getOrientation( dominant_hand ) )
-		local m = mat4( vec3( 0, 0, 0 ), ray.ori ):rotate( -input.pointer_rotation, 1, 0, 0 )
-		ray.dir = quat( m ):direction()
+		_.ray.pos = vec3( lovr.headset.getPosition( _.dominant_hand ) )
+		_.ray.ori = quat( lovr.headset.getOrientation( _.dominant_hand ) )
+		local m = mat4( vec3( 0, 0, 0 ), _.ray.ori ):rotate( -_.input.pointer_rotation, 1, 0, 0 )
+		_.ray.dir = quat( m ):direction()
 	end
 
-	caret.counter = caret.counter + 1
-	if caret.counter > caret.blink_rate then caret.counter = 0 end
-	if input.trigger == e_trigger.pressed then
-		activeID = nil
+	_.caret.counter = _.caret.counter + 1
+	if _.caret.counter > _.caret.blink_rate then _.caret.counter = 0 end
+	if _.input.trigger == _.e_trigger.pressed then
+		_.activeID = nil
 	end
 end
 
 function UI.Init( interaction_toggle_device, interaction_toggle_button, enabled, pointer_rotation )
-	input.interaction_toggle_device = interaction_toggle_device or input.interaction_toggle_device
-	input.interaction_toggle_button = interaction_toggle_button or input.interaction_toggle_button
-	input.interaction_enabled = (enabled ~= false)
-	input.pointer_rotation = pointer_rotation or input.pointer_rotation
-	font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
+	_.input.interaction_toggle_device = interaction_toggle_device or _.input.interaction_toggle_device
+	_.input.interaction_toggle_button = interaction_toggle_button or _.input.interaction_toggle_button
+	_.input.interaction_enabled = (enabled ~= false)
+	_.input.pointer_rotation = pointer_rotation or _.input.pointer_rotation
+	_.font.handle = lovr.graphics.newFont( root .. "DejaVuSansMono.ttf" )
 	osk.packs[ 1 ].textures[ 1 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
 	osk.packs[ 1 ].textures[ 2 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
 	osk.packs[ 1 ].textures[ 3 ] = lovr.graphics.newTexture( 640, 320, texture_flags )
 end
 
 function UI.NewFrame( main_pass )
-	font.handle:setPixelDensity( 1.0 )
-	if new_scale then
-		ui_scale = new_scale
+	_.font.handle:setPixelDensity( 1.0 )
+	if _.new_scale then
+		_.ui_scale = _.new_scale
 	end
-	new_scale = nil
+	_.new_scale = nil
 
-	ClearTable( windows )
-	ClearTable( passes )
+	_.ClearTable( _.windows )
+	_.ClearTable( _.passes )
 
-	if #image_buttons > 0 then
-		for i = #image_buttons, 1, -1 do
-			image_buttons[ i ].ttl = image_buttons[ i ].ttl - 1
-			if image_buttons[ i ].ttl <= 0 then
-				image_buttons[ i ].texture:release()
-				image_buttons[ i ].texture = nil
-				table.remove( image_buttons, i )
+	if #_.image_buttons > 0 then
+		for i = #_.image_buttons, 1, -1 do
+			_.image_buttons[ i ].ttl = _.image_buttons[ i ].ttl - 1
+			if _.image_buttons[ i ].ttl <= 0 then
+				_.image_buttons[ i ].texture:release()
+				_.image_buttons[ i ].texture = nil
+				table.remove( _.image_buttons, i )
 			end
 		end
 	end
 
-	if #whiteboards > 0 then
-		for i = #whiteboards, 1, -1 do
-			whiteboards[ i ].ttl = whiteboards[ i ].ttl - 1
-			if whiteboards[ i ].ttl <= 0 then
-				whiteboards[ i ].texture:release()
-				whiteboards[ i ].texture = nil
-				table.remove( whiteboards, i )
+	if #_.whiteboards > 0 then
+		for i = #_.whiteboards, 1, -1 do
+			_.whiteboards[ i ].ttl = _.whiteboards[ i ].ttl - 1
+			if _.whiteboards[ i ].ttl <= 0 then
+				_.whiteboards[ i ].texture:release()
+				_.whiteboards[ i ].texture = nil
+				table.remove( _.whiteboards, i )
 			end
 		end
 	end
 end
 
 function UI.RenderFrame( main_pass )
-	if input.interaction_enabled then
+	if _.input.interaction_enabled then
 		if osk.visible then
 			ShowOSK( main_pass )
 		end
@@ -875,12 +880,12 @@ function UI.RenderFrame( main_pass )
 		local closest = math.huge
 		local win_idx = nil
 
-		for i, v in ipairs( windows ) do
-			local hit = Raycast( ray.pos, ray.dir, v.transform )
-			local dist = ray.pos:distance( v.transform:unpack( false ) )
-			if hit and hit.x > -(windows[ i ].w * ui_scale) / 2 and hit.x < (windows[ i ].w * ui_scale) / 2 and
-				hit.y > -(windows[ i ].h * ui_scale) / 2 and
-				hit.y < (windows[ i ].h * ui_scale) / 2 then
+		for i, v in ipairs( _.windows ) do
+			local hit = _.Raycast( _.ray.pos, _.ray.dir, v.transform )
+			local dist = _.ray.pos:distance( v.transform:unpack( false ) )
+			if hit and hit.x > -(_.windows[ i ].w * _.ui_scale) / 2 and hit.x < (_.windows[ i ].w * _.ui_scale) / 2 and
+				hit.y > -(_.windows[ i ].h * _.ui_scale) / 2 and
+				hit.y < (_.windows[ i ].h * _.ui_scale) / 2 then
 				if dist < closest then
 					win_idx = i
 					closest = dist
@@ -889,89 +894,89 @@ function UI.RenderFrame( main_pass )
 		end
 
 		if win_idx then
-			local hit = Raycast( ray.pos, ray.dir, windows[ win_idx ].transform )
-			ray.hit = hit
-			hovered_window_id = windows[ win_idx ].id
-			windows[ win_idx ].is_hovered = true
-			ray.target = lovr.math.newMat4( windows[ win_idx ].transform )
+			local hit = _.Raycast( _.ray.pos, _.ray.dir, _.windows[ win_idx ].transform )
+			_.ray.hit = hit
+			_.hovered_window_id = _.windows[ win_idx ].id
+			_.windows[ win_idx ].is_hovered = true
+			_.ray.target = lovr.math.newMat4( _.windows[ win_idx ].transform )
 
-			last_off_x = hit.x * (1 / ui_scale) + (windows[ win_idx ].w / 2)
-			last_off_y = -(hit.y * (1 / ui_scale) - (windows[ win_idx ].h / 2))
+			_.last_off_x = hit.x * (1 / _.ui_scale) + (_.windows[ win_idx ].w / 2)
+			_.last_off_y = -(hit.y * (1 / _.ui_scale) - (_.windows[ win_idx ].h / 2))
 		else
-			ray.target = nil
-			hovered_window_id = nil
+			_.ray.target = nil
+			_.hovered_window_id = nil
 		end
 
-		DrawRay( main_pass )
+		_.DrawRay( main_pass )
 	end
 
-	if theme_changed then
+	if _.theme_changed then
 		for i, p in ipairs( GenerateOSKTextures() ) do
-			table.insert( passes, p )
+			table.insert( _.passes, p )
 		end
-		theme_changed = false
+		_.theme_changed = false
 	end
 
-	return passes
+	return _.passes
 end
 
 function UI.SameLine()
-	layout.same_line = true
+	_.layout.same_line = true
 end
 
 function UI.SameColumn()
-	layout.same_column = true
+	_.layout.same_column = true
 end
 
 function UI.Begin( name, transform, is_modal )
-	local window = { id = Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false,
+	local window = { id = _.Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false,
 		is_modal = is_modal or false }
-	table.insert( windows, window )
+	table.insert( _.windows, window )
 	if is_modal then
-		modal_window = window.id
+		_.modal_window = window.id
 	end
-	widget_counter = 1
+	_.widget_counter = 1
 end
 
 function UI.End( main_pass )
-	local cur_window = windows[ #windows ]
-	cur_window.w = layout.total_w
-	cur_window.h = layout.total_h
+	local cur_window = _.windows[ #_.windows ]
+	cur_window.w = _.layout.total_w
+	cur_window.h = _.layout.total_h
 
-	local idx = FindId( textures, cur_window.id )
+	local idx = _.FindId( _.textures, cur_window.id )
 	if idx ~= nil then
-		if cur_window.w == textures[ idx ].w and cur_window.h == textures[ idx ].h then
-			cur_window.texture = textures[ idx ].texture
+		if cur_window.w == _.textures[ idx ].w and cur_window.h == _.textures[ idx ].h then
+			cur_window.texture = _.textures[ idx ].texture
 		else
 			lovr.graphics.wait()
-			textures[ idx ].texture:release()
-			table.remove( textures, idx )
-			local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-				texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags ), delete = true }
+			_.textures[ idx ].texture:release()
+			table.remove( _.textures, idx )
+			local entry = { id = cur_window.id, w = _.layout.total_w, h = _.layout.total_h,
+				texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags ), delete = true }
 			cur_window.texture = entry.texture
-			table.insert( textures, entry )
+			table.insert( _.textures, entry )
 		end
 	else
-		local entry = { id = cur_window.id, w = layout.total_w, h = layout.total_h,
-			texture = lovr.graphics.newTexture( layout.total_w, layout.total_h, texture_flags ) }
+		local entry = { id = cur_window.id, w = _.layout.total_w, h = _.layout.total_h,
+			texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags ) }
 		cur_window.texture = entry.texture
-		table.insert( textures, entry )
+		table.insert( _.textures, entry )
 	end
 
 	cur_window.pass = lovr.graphics.getPass( 'render', { cur_window.texture, mipmap = true } )
-	cur_window.pass:setFont( font.handle )
+	cur_window.pass:setFont( _.font.handle )
 	cur_window.pass:setDepthTest( nil )
 	cur_window.pass:setProjection( 1, mat4():orthographic( cur_window.pass:getDimensions() ) )
-	cur_window.pass:setColor( colors.window_bg )
+	cur_window.pass:setColor( _.colors.window_bg )
 	cur_window.pass:fill()
-	table.insert( windows[ #windows ].command_list,
-		{ type = "rect_wire", bbox = { x = 0, y = 0, w = cur_window.w, h = cur_window.h }, color = colors.window_border } )
+	table.insert( _.windows[ #_.windows ].command_list,
+		{ type = "rect_wire", bbox = { x = 0, y = 0, w = cur_window.w, h = cur_window.h }, color = _.colors.window_border } )
 
 	for i, v in ipairs( cur_window.command_list ) do
 		if v.type == "rect_fill" then
 			if v.is_separator then
 				cur_window.pass:setColor( v.color )
-				local m = lovr.math.newMat4( vec3( v.bbox.x + (cur_window.w / 2), v.bbox.y, 0 ), vec3( cur_window.w - (2 * margin), separator_thickness, 0 ) )
+				local m = lovr.math.newMat4( vec3( v.bbox.x + (cur_window.w / 2), v.bbox.y, 0 ), vec3( cur_window.w - (2 * _.margin), _.separator_thickness, 0 ) )
 				cur_window.pass:plane( m, "fill" )
 			else
 				cur_window.pass:setColor( v.color )
@@ -1006,289 +1011,289 @@ function UI.End( main_pass )
 	end
 
 	main_pass:setColor( 1, 1, 1 )
-	if modal_window and cur_window.id ~= modal_window then
-		main_pass:setColor( colors.modal_tint )
+	if _.modal_window and cur_window.id ~= _.modal_window then
+		main_pass:setColor( _.colors.modal_tint )
 	end
 	main_pass:setMaterial( cur_window.texture )
 	cur_window.unscaled_transform = lovr.math.newMat4( cur_window.transform )
 
-	if cur_window.id == hovered_window_id and not window_drag.is_dragging then
-		if lovr.headset.wasPressed( dominant_hand, "grip" ) then
-			window_drag.offset:set( mat4( ray.pos, ray.ori ):invert() * cur_window.transform )
+	if cur_window.id == _.hovered_window_id and not window_drag.is_dragging then
+		if lovr.headset.wasPressed( _.dominant_hand, "grip" ) then
+			window_drag.offset:set( mat4( _.ray.pos, _.ray.ori ):invert() * cur_window.transform )
 			window_drag.id = cur_window.id
 			window_drag.is_dragging = true
 
 		end
 	end
 
-	if lovr.headset.wasReleased( dominant_hand, "grip" ) then
+	if lovr.headset.wasReleased( _.dominant_hand, "grip" ) then
 		window_drag.id = nil
 		window_drag.is_dragging = false
 	end
 
 	if window_drag.is_dragging and cur_window.id == window_drag.id then
-		cur_window.transform:set( mat4( ray.pos, ray.ori ) * (window_drag.offset) )
+		cur_window.transform:set( mat4( _.ray.pos, _.ray.ori ) * (window_drag.offset) )
 	end
 
-	local window_m = lovr.math.newMat4( cur_window.unscaled_transform:scale( cur_window.w * ui_scale, cur_window.h * ui_scale ) )
+	local window_m = lovr.math.newMat4( cur_window.unscaled_transform:scale( cur_window.w * _.ui_scale, cur_window.h * _.ui_scale ) )
 
 	main_pass:plane( window_m, "fill" )
 	main_pass:setMaterial()
 
-	ResetLayout()
-	table.insert( passes, cur_window.pass )
+	_.ResetLayout()
+	table.insert( _.passes, cur_window.pass )
 end
 
 function UI.ProgressBar( progress, width )
-	local char_w = font.handle:getWidth( "W" )
-	local text_h = font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
+	local text_h = _.font.handle:getHeight()
 
-	if width and width >= (2 * margin) + (4 * char_w) then
+	if width and width >= (2 * _.margin) + (4 * char_w) then
 		width = width
 	else
 		width = 300
 	end
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = width, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = width, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = width, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = width, h = (2 * _.margin) + text_h }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
-	progress = Clamp( progress, 0, 100 )
+	progress = _.Clamp( progress, 0, 100 )
 	local fill_w = math.floor( (width * progress) / 100 )
 	local str = progress .. "%"
 
-	table.insert( windows[ #windows ].command_list,
-		{ type = "rect_fill", bbox = { x = bbox.x, y = bbox.y, w = fill_w, h = bbox.h }, color = colors.progress_bar_fill } )
-	table.insert( windows[ #windows ].command_list,
-		{ type = "rect_fill", bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = colors.progress_bar_bg } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.progress_bar_border } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = bbox, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list,
+		{ type = "rect_fill", bbox = { x = bbox.x, y = bbox.y, w = fill_w, h = bbox.h }, color = _.colors.progress_bar_fill } )
+	table.insert( _.windows[ #_.windows ].command_list,
+		{ type = "rect_fill", bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = _.colors.progress_bar_bg } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.progress_bar_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = str, bbox = bbox, color = _.colors.text } )
 end
 
 function UI.Separator()
 	local bbox = {}
-	if layout.same_line then
+	if _.layout.same_line then
 		return
 	else
-		bbox = { x = 0, y = layout.prev_y + layout.row_h + (margin / 2) - (separator_thickness / 2), w = 0, h = 0 }
+		bbox = { x = 0, y = _.layout.prev_y + _.layout.row_h + (_.margin / 2) - (_.separator_thickness / 2), w = 0, h = 0 }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
-	table.insert( windows[ #windows ].command_list, { is_separator = true, type = "rect_fill", bbox = bbox, color = colors.separator } )
+	table.insert( _.windows[ #_.windows ].command_list, { is_separator = true, type = "rect_fill", bbox = bbox, color = _.colors.separator } )
 end
 
 function UI.ImageButton( img_filename, width, height, text )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. img_filename .. widget_counter )
-	local ib_idx = FindId( image_buttons, my_id )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. img_filename .. _.widget_counter )
+	local ib_idx = _.FindId( _.image_buttons, my_id )
 
 	if ib_idx == nil then
 		local tex = lovr.graphics.newTexture( img_filename )
 		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(),
-			ttl = image_buttons_default_ttl }
-		table.insert( image_buttons, ib )
-		ib_idx = #image_buttons
+			ttl = _.image_buttons_default_ttl }
+		table.insert( _.image_buttons, ib )
+		ib_idx = #_.image_buttons
 	end
 
-	local ib = image_buttons[ ib_idx ]
-	ib.ttl = image_buttons_default_ttl
+	local ib = _.image_buttons[ ib_idx ]
+	ib.ttl = _.image_buttons_default_ttl
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = ib.w, h = ib.h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = ib.w, h = ib.h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = ib.w, h = ib.h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = ib.w, h = ib.h }
 	end
 
 
 	local text_w, text_h
 
 	if text then
-		text_w = font.handle:getWidth( text )
-		text_h = font.handle:getHeight()
+		text_w = _.font.handle:getWidth( text )
+		text_h = _.font.handle:getHeight()
 
 		if text_h > bbox.h then
 			bbox.h = text_h
 		end
-		bbox.w = bbox.w + (2 * margin) + text_w
+		bbox.w = bbox.w + (2 * _.margin) + text_w
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local result = false
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.image_button_border_highlight } )
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.image_button_border_highlight } )
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				result = true
 			end
 		end
 	end
 
 	if text then
-		table.insert( windows[ #windows ].command_list,
+		table.insert( _.windows[ #_.windows ].command_list,
 			{ type = "image", bbox = { x = bbox.x, y = bbox.y + ((bbox.h - ib.h) / 2), w = ib.w, h = ib.h }, texture = ib.texture, color = { 1, 1, 1 } } )
-		table.insert( windows[ #windows ].command_list,
-			{ type = "text", text = text, bbox = { x = bbox.x + ib.w, y = bbox.y, w = text_w + (2 * margin), h = bbox.h }, color = colors.text } )
+		table.insert( _.windows[ #_.windows ].command_list,
+			{ type = "text", text = text, bbox = { x = bbox.x + ib.w, y = bbox.y, w = text_w + (2 * _.margin), h = bbox.h }, color = _.colors.text } )
 	else
-		table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
 	end
 
 	return result
 end
 
 function UI.WhiteBoard( name, width, height )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name .. widget_counter )
-	local wb_idx = FindId( whiteboards, my_id )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. name .. _.widget_counter )
+	local wb_idx = _.FindId( _.whiteboards, my_id )
 
 	if wb_idx == nil then
 		local tex = lovr.graphics.newTexture( width, height, { mipmaps = false } )
-		local wb = { id = my_id, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = whiteboards_default_ttl }
-		table.insert( whiteboards, wb )
-		wb_idx = #whiteboards
+		local wb = { id = my_id, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = _.whiteboards_default_ttl }
+		table.insert( _.whiteboards, wb )
+		wb_idx = #_.whiteboards
 	end
 
-	local wb = whiteboards[ wb_idx ]
-	wb.ttl = whiteboards_default_ttl
+	local wb = _.whiteboards[ wb_idx ]
+	wb.ttl = _.whiteboards_default_ttl
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = wb.w, h = wb.h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = wb.w, h = wb.h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = wb.w, h = wb.h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = wb.w, h = wb.h }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local clicked = false
 	local down = false
 	local released = false
 	local hovered = false
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
 			hovered = true
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 				clicked = true
 			end
-			if input.trigger == e_trigger.down and activeID == my_id then
+			if _.input.trigger == _.e_trigger.down and _.activeID == my_id then
 				down = true
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				released = true
 			end
 		end
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
 
 	local p = lovr.graphics.getPass( "render", wb.texture )
 	p:setDepthTest( nil )
 	p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
-	table.insert( passes, p )
-	return p, clicked, down, released, hovered, last_off_x - bbox.x, last_off_y - bbox.y
+	table.insert( _.passes, p )
+	return p, clicked, down, released, hovered, _.last_off_x - bbox.x, _.last_off_y - bbox.y
 end
 
 function UI.Dummy( width, height )
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = width, h = height }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = width, h = height }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = width, h = height }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = width, h = height }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 end
 
 function UI.TabBar( name, tabs, idx )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. name .. _.widget_counter )
 
-	local text_h = font.handle:getHeight()
+	local text_h = _.font.handle:getHeight()
 	local bbox = {}
 
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = 0, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = 0, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = 0, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = 0, h = (2 * _.margin) + text_h }
 	end
 
 	local result = false, idx
 	local total_w = 0
-	local col = colors.tab_bar_bg
+	local col = _.colors.tab_bar_bg
 	local x_off = bbox.x
 
 	for i, v in ipairs( tabs ) do
-		local text_w = font.handle:getWidth( v )
-		local tab_w = text_w + (2 * margin)
+		local text_w = _.font.handle:getWidth( v )
+		local tab_w = text_w + (2 * _.margin)
 		bbox.w = bbox.w + tab_w
 
-		if not modal_window or (modal_window and modal_window == cur_window.id) then
-			if PointInRect( last_off_x, last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == hovered_window_id then
-				hotID = my_id
-				col = colors.tab_bar_hover
-				if input.trigger == e_trigger.pressed then
-					activeID = my_id
+		if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+			if _.PointInRect( _.last_off_x, _.last_off_y, x_off, bbox.y, tab_w, bbox.h ) and cur_window.id == _.hovered_window_id then
+				_.hotID = my_id
+				col = _.colors.tab_bar_hover
+				if _.input.trigger == _.e_trigger.pressed then
+					_.activeID = my_id
 				end
-				if input.trigger == e_trigger.released and hotID == activeID then
-					lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+				if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+					lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 					idx = i
 					result = true
 				end
 			else
-				col = colors.tab_bar_bg
+				col = _.colors.tab_bar_bg
 			end
 		end
 
 		local tab_rect = { x = x_off, y = bbox.y, w = tab_w, h = bbox.h }
-		table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = tab_rect, color = col } )
-		table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = tab_rect, color = colors.tab_bar_border } )
-		table.insert( windows[ #windows ].command_list, { type = "text", text = v, bbox = tab_rect, color = colors.text } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = tab_rect, color = col } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = tab_rect, color = _.colors.tab_bar_border } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = v, bbox = tab_rect, color = _.colors.text } )
 
 		if idx == i then
-			table.insert( windows[ #windows ].command_list,
-				{ type = "rect_fill", bbox = { x = tab_rect.x + 2, y = tab_rect.y + tab_rect.h - 6, w = tab_rect.w - 4, h = 5 }, color = colors.tab_bar_highlight } )
+			table.insert( _.windows[ #_.windows ].command_list,
+				{ type = "rect_fill", bbox = { x = tab_rect.x + 2, y = tab_rect.y + tab_rect.h - 6, w = tab_rect.w - 4, h = 5 }, color = _.colors.tab_bar_highlight } )
 		end
 		x_off = x_off + tab_w
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.tab_bar_border } )
-	UpdateLayout( bbox )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.tab_bar_border } )
+	_.UpdateLayout( bbox )
 
 	return result, idx
 end
 
 function UI.Button( text, width, height )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. text .. _.widget_counter )
 
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
-	local num_lines = GetLineCount( text )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
+	local num_lines = _.GetLineCount( text )
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
-	elseif layout.same_column then
-		bbox = { x = layout.prev_x, y = layout.prev_y + layout.prev_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = (2 * _.margin) + text_w, h = (2 * _.margin) + (num_lines * text_h) }
+	elseif _.layout.same_column then
+		bbox = { x = _.layout.prev_x, y = _.layout.prev_y + _.layout.prev_h + _.margin, w = (2 * _.margin) + text_w, h = (2 * _.margin) + (num_lines * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + text_w, h = (2 * margin) + (num_lines * text_h) }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = (2 * _.margin) + text_w, h = (2 * _.margin) + (num_lines * text_h) }
 	end
 
 	if width and type( width ) == "number" and width > bbox.w then
@@ -1298,79 +1303,79 @@ function UI.Button( text, width, height )
 		bbox.h = height
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local result = false
-	local col = colors.button_bg
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.button_bg_hover
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+	local col = _.colors.button_bg
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col = _.colors.button_bg_hover
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				result = true
 			end
 		end
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = bbox, color = col } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.button_border } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = bbox, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = bbox, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.button_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = bbox, color = _.colors.text } )
 
 	return result
 end
 
 function UI.TextBox( name, num_visible_chars, buffer )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name .. widget_counter )
-	local tb_idx = FindId( textbox_state, my_id )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. name .. _.widget_counter )
+	local tb_idx = _.FindId( _.textbox_state, my_id )
 
 	if tb_idx == nil then
-		local str_len = utf8.len( buffer, 1, -1 )
+		local str_len = _.utf8.len( buffer, 1, -1 )
 		local scrl = 1
 		local tb = { id = my_id, text = buffer, scroll = scrl, cursor = 0, num_visible_chars = num_visible_chars }
-		table.insert( textbox_state, tb )
-		tb_idx = #textbox_state
+		table.insert( _.textbox_state, tb )
+		tb_idx = #_.textbox_state
 	end
 
-	local text_h = font.handle:getHeight()
-	local char_w = font.handle:getWidth( "W" )
-	local label_w = font.handle:getWidth( name )
+	local text_h = _.font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
+	local label_w = _.font.handle:getWidth( name )
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (4 * margin) + (num_visible_chars * char_w) + label_w, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = (4 * _.margin) + (num_visible_chars * char_w) + label_w, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (4 * margin) + (num_visible_chars * char_w) + label_w, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = (4 * _.margin) + (num_visible_chars * char_w) + label_w, h = (2 * _.margin) + text_h }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
-	local col1 = colors.textbox_bg
-	local col2 = colors.textbox_border
-	local text_rect = { x = bbox.x, y = bbox.y, w = bbox.w - margin - label_w, h = bbox.h }
-	local label_rect = { x = text_rect.x + text_rect.w + margin, y = bbox.y, w = label_w, h = bbox.h }
+	local col1 = _.colors.textbox_bg
+	local col2 = _.colors.textbox_border
+	local text_rect = { x = bbox.x, y = bbox.y, w = bbox.w - _.margin - label_w, h = bbox.h }
+	local label_rect = { x = text_rect.x + text_rect.w + _.margin, y = bbox.y, w = label_w, h = bbox.h }
 	local got_focus = false
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col1 = colors.textbox_bg_hover
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, text_rect.x, text_rect.y, text_rect.w, text_rect.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col1 = _.colors.textbox_bg_hover
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				osk.visible = true
-				focused_textbox = textbox_state[ tb_idx ]
-				local str_len = utf8.len( focused_textbox.text, 1, -1 )
-				focused_textbox.cursor = str_len
+				_.focused_textbox = _.textbox_state[ tb_idx ]
+				local str_len = _.utf8.len( _.focused_textbox.text, 1, -1 )
+				_.focused_textbox.cursor = str_len
 
-				focused_textbox.scroll = 1
-				focused_textbox.cursor = 0
+				_.focused_textbox.scroll = 1
+				_.focused_textbox.cursor = 0
 
 				got_focus = true
 			end
@@ -1378,104 +1383,104 @@ function UI.TextBox( name, num_visible_chars, buffer )
 	end
 
 	local str = ""
-	if #textbox_state[ tb_idx ].text > 0 then
-		local str_len = utf8.len( textbox_state[ tb_idx ].text, 1, -1 )
-		if str_len ~= #textbox_state[ tb_idx ].text then
+	if #_.textbox_state[ tb_idx ].text > 0 then
+		local str_len = _.utf8.len( _.textbox_state[ tb_idx ].text, 1, -1 )
+		if str_len ~= #_.textbox_state[ tb_idx ].text then
 			if str_len >= num_visible_chars then
-				str = utf8.sub( textbox_state[ tb_idx ].text, 1, num_visible_chars )
+				str = _.utf8.sub( _.textbox_state[ tb_idx ].text, 1, num_visible_chars )
 			else
-				str = utf8.sub( textbox_state[ tb_idx ].text, 1, str_len )
+				str = _.utf8.sub( _.textbox_state[ tb_idx ].text, 1, str_len )
 			end
 		else
-			str = textbox_state[ tb_idx ].text:sub( 1, num_visible_chars )
+			str = _.textbox_state[ tb_idx ].text:sub( 1, num_visible_chars )
 		end
 	end
 
 	local buffer_changed = false
 
-	if focused_textbox and focused_textbox.id == my_id then
-		col2 = colors.textbox_border_focused
+	if _.focused_textbox and _.focused_textbox.id == my_id then
+		col2 = _.colors.textbox_border_focused
 		if osk.last_key then
 			if osk.last_key == "left" then
-				focused_textbox.cursor = focused_textbox.cursor - 1
-				if focused_textbox.cursor < focused_textbox.scroll - 1 then
-					focused_textbox.scroll = focused_textbox.scroll - 1
-					if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+				_.focused_textbox.cursor = _.focused_textbox.cursor - 1
+				if _.focused_textbox.cursor < _.focused_textbox.scroll - 1 then
+					_.focused_textbox.scroll = _.focused_textbox.scroll - 1
+					if _.focused_textbox.scroll < 1 then _.focused_textbox.scroll = 1 end
 				end
-				if focused_textbox.cursor < 0 then focused_textbox.cursor = 0 end
+				if _.focused_textbox.cursor < 0 then _.focused_textbox.cursor = 0 end
 			elseif osk.last_key == "right" then
-				focused_textbox.cursor = focused_textbox.cursor + 1
-				if focused_textbox.cursor > focused_textbox.num_visible_chars + focused_textbox.scroll - 1 then
-					focused_textbox.scroll = focused_textbox.scroll + 1
-					if focused_textbox.scroll > utf8.len( focused_textbox.text, 1, -1 ) - focused_textbox.num_visible_chars then
-						focused_textbox.scroll = utf8.len( focused_textbox.text, 1, -1 ) - focused_textbox.num_visible_chars + 1
+				_.focused_textbox.cursor = _.focused_textbox.cursor + 1
+				if _.focused_textbox.cursor > _.focused_textbox.num_visible_chars + _.focused_textbox.scroll - 1 then
+					_.focused_textbox.scroll = _.focused_textbox.scroll + 1
+					if _.focused_textbox.scroll > _.utf8.len( _.focused_textbox.text, 1, -1 ) - _.focused_textbox.num_visible_chars then
+						_.focused_textbox.scroll = _.utf8.len( _.focused_textbox.text, 1, -1 ) - _.focused_textbox.num_visible_chars + 1
 					end
 				end
-				if focused_textbox.cursor > utf8.len( focused_textbox.text, 1, -1 ) then focused_textbox.cursor = utf8.len( focused_textbox.text, 1, -1 ) end
+				if _.focused_textbox.cursor > _.utf8.len( _.focused_textbox.text, 1, -1 ) then _.focused_textbox.cursor = _.utf8.len( _.focused_textbox.text, 1, -1 ) end
 			elseif osk.last_key == "backspace" then
-				if focused_textbox.cursor > 0 then
+				if _.focused_textbox.cursor > 0 then
 					buffer_changed = true
-					local s1 = utf8.sub( focused_textbox.text, 1, focused_textbox.cursor - 1 )
-					local s2 = utf8.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
-					focused_textbox.text = s1 .. s2
-					focused_textbox.cursor = focused_textbox.cursor - 1
-					if focused_textbox.scroll > utf8.len( focused_textbox.text, 1 ) - focused_textbox.num_visible_chars + 1 then
-						focused_textbox.scroll = focused_textbox.scroll - 1
-						if focused_textbox.scroll < 1 then focused_textbox.scroll = 1 end
+					local s1 = _.utf8.sub( _.focused_textbox.text, 1, _.focused_textbox.cursor - 1 )
+					local s2 = _.utf8.sub( _.focused_textbox.text, _.focused_textbox.cursor + 1, -1 )
+					_.focused_textbox.text = s1 .. s2
+					_.focused_textbox.cursor = _.focused_textbox.cursor - 1
+					if _.focused_textbox.scroll > _.utf8.len( _.focused_textbox.text, 1 ) - _.focused_textbox.num_visible_chars + 1 then
+						_.focused_textbox.scroll = _.focused_textbox.scroll - 1
+						if _.focused_textbox.scroll < 1 then _.focused_textbox.scroll = 1 end
 					end
 				end
 			elseif osk.last_key == "return" then
-				return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
+				return got_focus, buffer_changed, my_id, _.textbox_state[ tb_idx ].text
 			else
 				buffer_changed = true
-				local s1 = utf8.sub( focused_textbox.text, 1, focused_textbox.cursor )
-				local s2 = utf8.sub( focused_textbox.text, focused_textbox.cursor + 1, -1 )
+				local s1 = _.utf8.sub( _.focused_textbox.text, 1, _.focused_textbox.cursor )
+				local s2 = _.utf8.sub( _.focused_textbox.text, _.focused_textbox.cursor + 1, -1 )
 
-				focused_textbox.text = s1 .. osk.last_key .. s2
-				focused_textbox.cursor = focused_textbox.cursor + 1
-				if focused_textbox.cursor > focused_textbox.num_visible_chars then
-					focused_textbox.scroll = focused_textbox.scroll + 1
+				_.focused_textbox.text = s1 .. osk.last_key .. s2
+				_.focused_textbox.cursor = _.focused_textbox.cursor + 1
+				if _.focused_textbox.cursor > _.focused_textbox.num_visible_chars then
+					_.focused_textbox.scroll = _.focused_textbox.scroll + 1
 				end
 			end
 
 		end
 
-		if #focused_textbox.text > 0 then
-			local str_len = utf8.len( focused_textbox.text, 1, -1 )
-			if str_len ~= #focused_textbox.text then
+		if #_.focused_textbox.text > 0 then
+			local str_len = _.utf8.len( _.focused_textbox.text, 1, -1 )
+			if str_len ~= #_.focused_textbox.text then
 				if str_len >= num_visible_chars then
-					str = utf8.sub( focused_textbox.text, focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
+					str = _.utf8.sub( _.focused_textbox.text, _.focused_textbox.scroll, _.focused_textbox.scroll + num_visible_chars - 1 )
 				else
-					str = utf8.sub( focused_textbox.text, 1, str_len )
+					str = _.utf8.sub( _.focused_textbox.text, 1, str_len )
 				end
 			else
-				str = focused_textbox.text:sub( focused_textbox.scroll, focused_textbox.scroll + num_visible_chars - 1 )
+				str = _.focused_textbox.text:sub( _.focused_textbox.scroll, _.focused_textbox.scroll + num_visible_chars - 1 )
 			end
 		end
 	end
 
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + margin, y = text_rect.y,
-		w = (utf8.len( str, 1 ) * char_w) + margin, h = text_rect.h }, color = colors.text } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = name, bbox = label_rect, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + _.margin, y = text_rect.y,
+		w = (_.utf8.len( str, 1 ) * char_w) + _.margin, h = text_rect.h }, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = name, bbox = label_rect, color = _.colors.text } )
 
-	-- caret
-	if focused_textbox and focused_textbox.id == my_id and caret.counter % caret.blink_rate > (caret.blink_rate / 2) then
-		table.insert( windows[ #windows ].command_list,
+	-- _.caret
+	if _.focused_textbox and _.focused_textbox.id == my_id and _.caret.counter % _.caret.blink_rate > (_.caret.blink_rate / 2) then
+		table.insert( _.windows[ #_.windows ].command_list,
 			{ type = "rect_fill",
-				bbox = { x = text_rect.x + ((textbox_state[ tb_idx ].cursor - textbox_state[ tb_idx ].scroll + 1) * char_w) + margin + 8, y = text_rect.y + margin, w = 2,
+				bbox = { x = text_rect.x + ((_.textbox_state[ tb_idx ].cursor - _.textbox_state[ tb_idx ].scroll + 1) * char_w) + _.margin + 8, y = text_rect.y + _.margin, w = 2,
 					h = text_h },
-				color = colors.text } )
+				color = _.colors.text } )
 	end
 
-	return got_focus, buffer_changed, my_id, textbox_state[ tb_idx ].text
+	return got_focus, buffer_changed, my_id, _.textbox_state[ tb_idx ].text
 end
 
 function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, selected )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. name .. widget_counter )
-	local lst_idx = FindId( listbox_state, my_id )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. name .. _.widget_counter )
+	local lst_idx = _.FindId( _.listbox_state, my_id )
 
 	if lst_idx == nil then
 		local selected_idx = 1
@@ -1489,76 +1494,76 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 			end
 		end
 		local l = { id = my_id, scroll = 1, selected_idx = selected_idx }
-		table.insert( listbox_state, l )
-		lst_idx = #listbox_state
+		table.insert( _.listbox_state, l )
+		lst_idx = #_.listbox_state
 	end
 
-	local char_w = font.handle:getWidth( "W" )
-	local text_h = font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
+	local text_h = _.font.handle:getHeight()
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = (2 * margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = (2 * _.margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = (2 * margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = (2 * _.margin) + (num_visible_chars * char_w), h = (num_visible_rows * text_h) }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local highlight_idx = nil
 	local result = false
 
 	local scrollmax = #collection - num_visible_rows + 1
 	if #collection < num_visible_rows then scrollmax = 1 end
-	if listbox_state[ lst_idx ].scroll > scrollmax then listbox_state[ lst_idx ].scroll = scrollmax end
+	if _.listbox_state[ lst_idx ].scroll > scrollmax then _.listbox_state[ lst_idx ].scroll = scrollmax end
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			highlight_idx = math.floor( (last_off_y - bbox.y) / (text_h) ) + 1
-			highlight_idx = Clamp( highlight_idx, 1, #collection )
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			highlight_idx = math.floor( (_.last_off_y - bbox.y) / (text_h) ) + 1
+			highlight_idx = _.Clamp( highlight_idx, 1, #collection )
 
 			-- Select
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				listbox_state[ lst_idx ].selected_idx = highlight_idx + listbox_state[ lst_idx ].scroll - 1
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				_.listbox_state[ lst_idx ].selected_idx = highlight_idx + _.listbox_state[ lst_idx ].scroll - 1
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				result = true
 			end
 
 			-- Scroll
-			local thumb_x, thumb_y = lovr.headset.getAxis( dominant_hand, "thumbstick" )
+			local thumb_x, thumb_y = lovr.headset.getAxis( _.dominant_hand, "thumbstick" )
 			if thumb_y > 0.7 then
-				listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll - 1
-				listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
+				_.listbox_state[ lst_idx ].scroll = _.listbox_state[ lst_idx ].scroll - 1
+				_.listbox_state[ lst_idx ].scroll = _.Clamp( _.listbox_state[ lst_idx ].scroll, 1, scrollmax )
 			end
 
 			if thumb_y < -0.7 then
-				listbox_state[ lst_idx ].scroll = listbox_state[ lst_idx ].scroll + 1
-				listbox_state[ lst_idx ].scroll = Clamp( listbox_state[ lst_idx ].scroll, 1, scrollmax )
+				_.listbox_state[ lst_idx ].scroll = _.listbox_state[ lst_idx ].scroll + 1
+				_.listbox_state[ lst_idx ].scroll = _.Clamp( _.listbox_state[ lst_idx ].scroll, 1, scrollmax )
 			end
 		end
 	end
 
-	listbox_state[ lst_idx ].selected_idx = Clamp( listbox_state[ lst_idx ].selected_idx, 0, #collection )
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = bbox, color = colors.list_bg } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = bbox, color = colors.list_border } )
+	_.listbox_state[ lst_idx ].selected_idx = _.Clamp( _.listbox_state[ lst_idx ].selected_idx, 0, #collection )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = bbox, color = _.colors.list_bg } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.list_border } )
 
 	-- Draw selected rect
-	local lst_scroll = listbox_state[ lst_idx ].scroll
-	local lst_selected_idx = listbox_state[ lst_idx ].selected_idx
+	local lst_scroll = _.listbox_state[ lst_idx ].scroll
+	local lst_selected_idx = _.listbox_state[ lst_idx ].selected_idx
 
 	if lst_selected_idx >= lst_scroll and lst_selected_idx <= lst_scroll + num_visible_rows then
 		local selected_rect = { x = bbox.x, y = bbox.y + (lst_selected_idx - lst_scroll) * text_h, w = bbox.w, h = text_h }
-		table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = selected_rect, color = colors.list_selected } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = selected_rect, color = _.colors.list_selected } )
 	end
 
 	-- Draw highlight when hovered
 	if highlight_idx ~= nil then
 		local highlight_rect = { x = bbox.x, y = bbox.y + ((highlight_idx - 1) * text_h), w = bbox.w, h = text_h }
-		table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = highlight_rect, color = colors.list_highlight } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = highlight_rect, color = _.colors.list_highlight } )
 	end
 
 	local y_offset = bbox.y
@@ -1569,335 +1574,335 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 
 	for i = lst_scroll, last do
 		local str = collection[ i ]
-		local num_chars = utf8.len( str )
+		local num_chars = _.utf8.len( str )
 
 		if num_chars > num_visible_chars then
 			if num_chars ~= #str then
-				local count = utf8.offset( str, num_visible_chars, 1 )
-				str = utf8.sub( str, 1, num_visible_chars )
+				local count = _.utf8.offset( str, num_visible_chars, 1 )
+				str = _.utf8.sub( str, 1, num_visible_chars )
 			else
 				str = str:sub( 1, num_visible_chars )
 			end
 		end
 
-		local item_w = font.handle:getWidth( str )
-		table.insert( windows[ #windows ].command_list,
-			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = item_w + margin, h = text_h }, color = colors.text } )
+		local item_w = _.font.handle:getWidth( str )
+		table.insert( _.windows[ #_.windows ].command_list,
+			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = item_w + _.margin, h = text_h }, color = _.colors.text } )
 		y_offset = y_offset + text_h
 	end
 
-	return result, listbox_state[ lst_idx ].selected_idx
+	return result, _.listbox_state[ lst_idx ].selected_idx
 end
 
 function UI.SliderInt( text, v, v_min, v_max, width )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. text .. _.widget_counter )
 
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
-	local char_w = font.handle:getWidth( "W" )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
 
 	local slider_w = 10 * char_w
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = slider_w + margin + text_w, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = slider_w + _.margin + text_w, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = slider_w + margin + text_w, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = slider_w + _.margin + text_w, h = (2 * _.margin) + text_h }
 	end
 
 	if width and type( width ) == "number" and width > bbox.w then
 		bbox.w = width
-		slider_w = width - margin - text_w
+		slider_w = width - _.margin - text_w
 	end
 
 	-- Silently replace with a textbox
-	if focused_slider == my_id then
-		bbox.w = -margin
-		UpdateLayout( bbox )
+	if _.focused_slider == my_id then
+		bbox.w = -_.margin
+		_.UpdateLayout( bbox )
 		UI.SameLine()
 		local gf, bc, id, txt
-		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * margin)) / char_w, tostring( v ) )
+		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * _.margin)) / char_w, tostring( v ) )
 
 		if bc then
 			if tonumber( txt ) then
 				v = tonumber( txt )
 			end
 			if osk.last_key == "return" then
-				focused_slider = nil
-				focused_textbox = nil
+				_.focused_slider = nil
+				_.focused_textbox = nil
 			end
 			return true, v
 		else
 			return false, v
 		end
 	else -- Remove redundant state. Might not be called ever again
-		local tb_idx = FindId( textbox_state, my_id )
+		local tb_idx = _.FindId( _.textbox_state, my_id )
 		if tb_idx then
-			table.remove( textbox_state, tb_idx )
+			table.remove( _.textbox_state, tb_idx )
 		end
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local thumb_w = text_h
-	local col = colors.slider_bg
+	local col = _.colors.slider_bg
 	local result = false
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.slider_bg_hover
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col = _.colors.slider_bg_hover
 
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 			end
 		end
 	end
 
-	if not lovr.headset.isDown( dominant_hand, "grip" ) then
-		if input.trigger == e_trigger.down and activeID == my_id then
-			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+	if not lovr.headset.isDown( _.dominant_hand, "grip" ) then
+		if _.input.trigger == _.e_trigger.down and _.activeID == my_id then
+			v = _.MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, _.last_off_x )
 		end
 
-		if input.trigger == e_trigger.released and activeID == my_id then
+		if _.input.trigger == _.e_trigger.released and _.activeID == my_id then
 			result = true
 		end
 
-		v = Clamp( math.ceil( v ), v_min, v_max )
+		v = _.Clamp( math.ceil( v ), v_min, v_max )
 		-- stupid way to turn -0 to 0 ???
 		if v == 0 then v = 0 end
 	else
-		if input.trigger == e_trigger.pressed and activeID == my_id then
-			focused_slider = my_id
+		if _.input.trigger == _.e_trigger.pressed and _.activeID == my_id then
+			_.focused_slider = my_id
 		end
 	end
 
-	local value_text_w = font.handle:getWidth( v )
-	local text_label_rect = { x = bbox.x + slider_w + margin, y = bbox.y, w = text_w, h = bbox.h }
+	local value_text_w = _.font.handle:getWidth( v )
+	local text_label_rect = { x = bbox.x + slider_w + _.margin, y = bbox.y, w = text_w, h = bbox.h }
 	local text_value_rect = { x = bbox.x, y = bbox.y, w = slider_w, h = bbox.h }
 	local slider_rect = { x = bbox.x, y = bbox.y + (bbox.h / 2) - (text_h / 2), w = slider_w, h = text_h }
-	local thumb_pos = MapRange( v_min, v_max, bbox.x, bbox.x + slider_w - thumb_w, v )
+	local thumb_pos = _.MapRange( v_min, v_max, bbox.x, bbox.x + slider_w - thumb_w, v )
 	local thumb_rect = { x = thumb_pos, y = bbox.y + (bbox.h / 2) - (text_h / 2), w = thumb_w, h = thumb_w }
 
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = colors.slider_thumb } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = colors.text } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = v, bbox = text_value_rect, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = _.colors.slider_thumb } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = v, bbox = text_value_rect, color = _.colors.text } )
 	return result, v
 end
 
 function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. text .. _.widget_counter )
 
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
-	local char_w = font.handle:getWidth( "W" )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
 
 	local slider_w = 10 * char_w
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = slider_w + margin + text_w, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = slider_w + _.margin + text_w, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = slider_w + margin + text_w, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = slider_w + _.margin + text_w, h = (2 * _.margin) + text_h }
 	end
 
 	if width and type( width ) == "number" and width > bbox.w then
 		bbox.w = width
-		slider_w = width - margin - text_w
+		slider_w = width - _.margin - text_w
 	end
 
 	-- Silently replace with a textbox
-	if focused_slider == my_id then
-		bbox.w = -margin
-		UpdateLayout( bbox )
+	if _.focused_slider == my_id then
+		bbox.w = -_.margin
+		_.UpdateLayout( bbox )
 		UI.SameLine()
 		local gf, bc, id, txt
 		num_decimals = num_decimals or 2
 		local str_fmt = "%." .. num_decimals .. "f"
-		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * margin)) / char_w, string.format( str_fmt, tostring( v ) ) )
+		gf, bc, id, txt = UI.TextBox( text, (slider_w - (3 * _.margin)) / char_w, string.format( str_fmt, tostring( v ) ) )
 
 		if bc then
 			if tonumber( txt ) then
 				v = tonumber( txt )
 			end
 			if osk.last_key == "return" then
-				focused_slider = nil
-				focused_textbox = nil
+				_.focused_slider = nil
+				_.focused_textbox = nil
 			end
 			return true, v
 		else
 			return false, v
 		end
 	else -- Remove redundant state. Might not be called ever again
-		local tb_idx = FindId( textbox_state, my_id )
+		local tb_idx = _.FindId( _.textbox_state, my_id )
 		if tb_idx then
-			table.remove( textbox_state, tb_idx )
+			table.remove( _.textbox_state, tb_idx )
 		end
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local thumb_w = text_h
-	local col = colors.slider_bg
+	local col = _.colors.slider_bg
 	local result = false
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.slider_bg_hover
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, slider_w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col = _.colors.slider_bg_hover
 
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 			end
 		end
 	end
 
-	if not lovr.headset.isDown( dominant_hand, "grip" ) then
-		if input.trigger == e_trigger.down and activeID == my_id then
-			v = MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, last_off_x )
+	if not lovr.headset.isDown( _.dominant_hand, "grip" ) then
+		if _.input.trigger == _.e_trigger.down and _.activeID == my_id then
+			v = _.MapRange( bbox.x + 2, bbox.x + slider_w - 2, v_min, v_max, _.last_off_x )
 		end
 
-		if input.trigger == e_trigger.released and activeID == my_id then
+		if _.input.trigger == _.e_trigger.released and _.activeID == my_id then
 			result = true
 		end
 
-		v = Clamp( v, v_min, v_max )
+		v = _.Clamp( v, v_min, v_max )
 	else
-		if input.trigger == e_trigger.pressed and activeID == my_id then
-			focused_slider = my_id
+		if _.input.trigger == _.e_trigger.pressed and _.activeID == my_id then
+			_.focused_slider = my_id
 		end
 	end
 
-	local value_text_w = font.handle:getWidth( v )
-	local text_label_rect = { x = bbox.x + slider_w + margin, y = bbox.y, w = text_w, h = bbox.h }
+	local value_text_w = _.font.handle:getWidth( v )
+	local text_label_rect = { x = bbox.x + slider_w + _.margin, y = bbox.y, w = text_w, h = bbox.h }
 	local text_value_rect = { x = bbox.x, y = bbox.y, w = slider_w, h = bbox.h }
 	local slider_rect = { x = bbox.x, y = bbox.y + (bbox.h / 2) - (text_h / 2), w = slider_w, h = text_h }
-	local thumb_pos = MapRange( v_min, v_max, bbox.x, bbox.x + slider_w - thumb_w, v )
+	local thumb_pos = _.MapRange( v_min, v_max, bbox.x, bbox.x + slider_w - thumb_w, v )
 	local thumb_rect = { x = thumb_pos, y = bbox.y + (bbox.h / 2) - (text_h / 2), w = thumb_w, h = thumb_w }
 	num_decimals = num_decimals or 2
 	local str_fmt = "%." .. num_decimals .. "f"
 
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
-	table.insert( windows[ #windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = colors.slider_thumb } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = colors.text } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = string.format( str_fmt, v ), bbox = text_value_rect, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = _.colors.slider_thumb } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = string.format( str_fmt, v ), bbox = text_value_rect, color = _.colors.text } )
 	return result, v
 end
 
 function UI.Label( text, compact )
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
-	local num_lines = GetLineCount( text )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
+	local num_lines = _.GetLineCount( text )
 
-	local mrg = (2 * margin)
+	local mrg = (2 * _.margin)
 	if compact then
 		mrg = 0
 	end
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_w, h = mrg + (num_lines * text_h) }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = text_w, h = mrg + (num_lines * text_h) }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_w, h = mrg + (num_lines * text_h) }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = text_w, h = mrg + (num_lines * text_h) }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = bbox, color = colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = bbox, color = _.colors.text } )
 end
 
 function UI.CheckBox( text, checked )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. text .. _.widget_counter )
 
-	local char_w = font.handle:getWidth( "W" )
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_h + margin + text_w, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = text_h + _.margin + text_w, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_h + margin + text_w, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = text_h + _.margin + text_w, h = (2 * _.margin) + text_h }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local result = false
-	local col = colors.check_border
+	local col = _.colors.check_border
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.check_border_hover
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col = _.colors.check_border_hover
 
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				result = true
 			end
 		end
 	end
 
-	local check_rect = { x = bbox.x, y = bbox.y + margin, w = text_h, h = text_h }
-	local text_rect = { x = bbox.x + text_h + margin, y = bbox.y, w = text_w + margin, h = bbox.h }
-	table.insert( windows[ #windows ].command_list, { type = "rect_wire", bbox = check_rect, color = col } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_rect, color = colors.text } )
+	local check_rect = { x = bbox.x, y = bbox.y + _.margin, w = text_h, h = text_h }
+	local text_rect = { x = bbox.x + text_h + _.margin, y = bbox.y, w = text_w + _.margin, h = bbox.h }
+	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = check_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_rect, color = _.colors.text } )
 
 	if checked and type( checked ) == "boolean" then
-		table.insert( windows[ #windows ].command_list, { type = "text", text = "✔", bbox = check_rect, color = colors.check_mark } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = "✔", bbox = check_rect, color = _.colors.check_mark } )
 	end
 
 	return result
 end
 
 function UI.RadioButton( text, checked )
-	local cur_window = windows[ #windows ]
-	local my_id = Hash( cur_window.name .. text .. widget_counter )
+	local cur_window = _.windows[ #_.windows ]
+	local my_id = _.Hash( cur_window.name .. text .. _.widget_counter )
 
-	local char_w = font.handle:getWidth( "W" )
-	local text_w = font.handle:getWidth( text )
-	local text_h = font.handle:getHeight()
+	local char_w = _.font.handle:getWidth( "W" )
+	local text_w = _.font.handle:getWidth( text )
+	local text_h = _.font.handle:getHeight()
 
 	local bbox = {}
-	if layout.same_line then
-		bbox = { x = layout.prev_x + layout.prev_w + margin, y = layout.prev_y, w = text_h + margin + text_w, h = (2 * margin) + text_h }
+	if _.layout.same_line then
+		bbox = { x = _.layout.prev_x + _.layout.prev_w + _.margin, y = _.layout.prev_y, w = text_h + _.margin + text_w, h = (2 * _.margin) + text_h }
 	else
-		bbox = { x = margin, y = layout.prev_y + layout.row_h + margin, w = text_h + margin + text_w, h = (2 * margin) + text_h }
+		bbox = { x = _.margin, y = _.layout.prev_y + _.layout.row_h + _.margin, w = text_h + _.margin + text_w, h = (2 * _.margin) + text_h }
 	end
 
-	UpdateLayout( bbox )
+	_.UpdateLayout( bbox )
 
 	local result = false
-	local col = colors.radio_border
+	local col = _.colors.radio_border
 
-	if not modal_window or (modal_window and modal_window == cur_window.id) then
-		if PointInRect( last_off_x, last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == hovered_window_id then
-			hotID = my_id
-			col = colors.radio_border_hover
+	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
+		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
+			_.hotID = my_id
+			col = _.colors.radio_border_hover
 
-			if input.trigger == e_trigger.pressed then
-				activeID = my_id
+			if _.input.trigger == _.e_trigger.pressed then
+				_.activeID = my_id
 			end
-			if input.trigger == e_trigger.released and hotID == activeID then
-				lovr.headset.vibrate( dominant_hand, 0.3, 0.1 )
+			if _.input.trigger == _.e_trigger.released and _.hotID == _.activeID then
+				lovr.headset.vibrate( _.dominant_hand, 0.3, 0.1 )
 				result = true
 			end
 		end
 	end
 
-	local check_rect = { x = bbox.x, y = bbox.y + margin, w = text_h, h = text_h }
-	local text_rect = { x = bbox.x + text_h + margin, y = bbox.y, w = text_w + margin, h = bbox.h }
-	table.insert( windows[ #windows ].command_list, { type = "circle_wire", bbox = check_rect, color = col } )
-	table.insert( windows[ #windows ].command_list, { type = "text", text = text, bbox = text_rect, color = colors.text } )
+	local check_rect = { x = bbox.x, y = bbox.y + _.margin, w = text_h, h = text_h }
+	local text_rect = { x = bbox.x + text_h + _.margin, y = bbox.y, w = text_w + _.margin, h = bbox.h }
+	table.insert( _.windows[ #_.windows ].command_list, { type = "circle_wire", bbox = check_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_rect, color = _.colors.text } )
 
 	if checked and type( checked ) == "boolean" then
-		table.insert( windows[ #windows ].command_list, { type = "circle_fill", bbox = check_rect, color = colors.radio_mark } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = "circle_fill", bbox = check_rect, color = _.colors.radio_mark } )
 	end
 
 	return result
