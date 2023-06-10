@@ -1,5 +1,6 @@
 ## lovr-ui
 ### An immediate mode VR GUI library for [LÖVR](https://lovr.org/)
+( For a retained mode UI library check out [chui](https://github.com/jmiskovic/chui) )
 ![lovr-ui](https://i.imgur.com/Q5SHm3H.png)
 **How to use:**
  - Put the ui folder inside your project and require it: `UI = require "ui/ui"`
