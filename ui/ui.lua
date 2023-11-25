@@ -60,10 +60,22 @@ _.textures = {}
 _.image_buttons = {}
 _.whiteboards = {}
 _.layout = { prev_x = 0, prev_y = 0, prev_w = 0, prev_h = 0, row_h = 0, total_w = 0, total_h = 0, same_line = false, same_column = false }
-_.input = { interaction_toggle_device = "hand/left", interaction_toggle_button = "thumbstick", interaction_enabled = true, trigger = _.e_trigger.idle,
-	pointer_rotation = math.pi / 3 }
-local osk = { visible = false, prev_frame_visible = false, transform = lovr.math.newMat4(), packs = {}, cur_mode = 1, cur_pack = 1,
-	last_key = nil }
+_.input = {
+	interaction_toggle_device = "hand/left",
+	interaction_toggle_button = "thumbstick",
+	interaction_enabled = true,
+	trigger = _.e_trigger.idle,
+	pointer_rotation = math.pi / 3
+}
+local osk = {
+	visible = false,
+	prev_frame_visible = false,
+	transform = lovr.math.newMat4(),
+	packs = {},
+	cur_mode = 1,
+	cur_pack = 1,
+	last_key = nil
+}
 local clamp_sampler = lovr.graphics.newSampler( { wrap = 'clamp' } )
 local color_themes = {}
 local texture_flags = { mipmaps = true, usage = { 'sample', 'render', 'transfer' } }
@@ -183,8 +195,10 @@ osk.packs[ 1 ].mode[ 3 ] =
 --                             Internals                                      --
 -- -------------------------------------------------------------------------- --
 function _.Clamp( n, n_min, n_max )
-	if n < n_min then n = n_min
-	elseif n > n_max then n = n_max
+	if n < n_min then
+		n = n_min
+	elseif n > n_max then
+		n = n_max
 	end
 
 	return n
@@ -334,7 +348,7 @@ local function GenerateOSKTextures()
 	local passes = {}
 	for pk = 1, #osk.packs do
 		for md = 1, 3 do
-			local p = lovr.graphics.getPass( 'render', { osk.packs[ pk ].textures[ md ], mipmap = true } )
+			local p = lovr.graphics.newPass( osk.packs[ pk ].textures[ md ] )
 			p:setFont( _.font.handle )
 			p:setDepthTest( nil )
 			p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
@@ -452,8 +466,17 @@ local function ShowOSK( pass )
 	osk.prev_frame_visible = true
 	osk.last_key = nil
 
-	local window = { id = _.Hash( "OnScreenKeyboard" ), name = "OnScreenKeyboard", transform = osk.transform, w = 640, h = 320, command_list = {},
-		texture = osk.packs[ osk.cur_pack ].textures[ osk.cur_mode ], pass = pass, is_hovered = false }
+	local window = {
+		id = _.Hash( "OnScreenKeyboard" ),
+		name = "OnScreenKeyboard",
+		transform = osk.transform,
+		w = 640,
+		h = 320,
+		command_list = {},
+		texture = osk.packs[ osk.cur_pack ].textures[ osk.cur_mode ],
+		pass = pass,
+		is_hovered = false
+	}
 
 	table.insert( _.windows, 1, window ) -- NOTE: Insert on top. Does it make any difference?
 
@@ -579,7 +602,6 @@ function _.utf8.decode( str, startPos )
 
 	-- Validate our continuation bytes
 	for _, bX in ipairs { str:byte( startPos + 1, endPos ) } do
-
 		if bit.band( bX, 0xC0 ) ~= 0x80 then
 			return nil
 		end
@@ -616,7 +638,6 @@ function _.utf8.offset( str, n, startPos )
 
 	-- Find the beginning of the sequence over startPos
 	if n == 0 then
-
 		for i = startPos, 1, -1 do
 			local seqStartPos, seqEndPos = _.utf8.decode( str, i )
 			if seqStartPos then
@@ -929,8 +950,18 @@ function UI.SameColumn()
 end
 
 function UI.Begin( name, transform, is_modal )
-	local window = { id = _.Hash( name ), name = name, transform = transform, w = 0, h = 0, command_list = {}, texture = nil, pass = nil, is_hovered = false,
-		is_modal = is_modal or false }
+	local window = {
+		id = _.Hash( name ),
+		name = name,
+		transform = transform,
+		w = 0,
+		h = 0,
+		command_list = {},
+		texture = nil,
+		pass = nil,
+		is_hovered = false,
+		is_modal = is_modal or false
+	}
 	table.insert( _.windows, window )
 	if is_modal then
 		_.modal_window = window.id
@@ -951,19 +982,28 @@ function UI.End( main_pass )
 			lovr.graphics.wait()
 			_.textures[ idx ].texture:release()
 			table.remove( _.textures, idx )
-			local entry = { id = cur_window.id, w = _.layout.total_w, h = _.layout.total_h,
-				texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags ), delete = true }
+			local entry = {
+				id = cur_window.id,
+				w = _.layout.total_w,
+				h = _.layout.total_h,
+				texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags ),
+				delete = true
+			}
 			cur_window.texture = entry.texture
 			table.insert( _.textures, entry )
 		end
 	else
-		local entry = { id = cur_window.id, w = _.layout.total_w, h = _.layout.total_h,
-			texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags ) }
+		local entry = {
+			id = cur_window.id,
+			w = _.layout.total_w,
+			h = _.layout.total_h,
+			texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags )
+		}
 		cur_window.texture = entry.texture
 		table.insert( _.textures, entry )
 	end
 
-	cur_window.pass = lovr.graphics.getPass( 'render', { cur_window.texture, mipmap = true } )
+	cur_window.pass = lovr.graphics.newPass( cur_window.texture )
 	cur_window.pass:setFont( _.font.handle )
 	cur_window.pass:setDepthTest( nil )
 	cur_window.pass:setProjection( 1, mat4():orthographic( cur_window.pass:getDimensions() ) )
@@ -1022,7 +1062,6 @@ function UI.End( main_pass )
 			window_drag.offset:set( mat4( _.ray.pos, _.ray.ori ):invert() * cur_window.transform )
 			window_drag.id = cur_window.id
 			window_drag.is_dragging = true
-
 		end
 	end
 
@@ -1095,8 +1134,14 @@ function UI.ImageButton( img_filename, width, height, text )
 
 	if ib_idx == nil then
 		local tex = lovr.graphics.newTexture( img_filename )
-		local ib = { id = my_id, img_filename = img_filename, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(),
-			ttl = _.image_buttons_default_ttl }
+		local ib = {
+			id = my_id,
+			img_filename = img_filename,
+			texture = tex,
+			w = width or tex:getWidth(),
+			h = height or tex:getHeight(),
+			ttl = _.image_buttons_default_ttl
+		}
 		table.insert( _.image_buttons, ib )
 		ib_idx = #_.image_buttons
 	end
@@ -1203,7 +1248,7 @@ function UI.WhiteBoard( name, width, height )
 
 	table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
 
-	local p = lovr.graphics.getPass( "render", wb.texture )
+	local p = lovr.graphics.newPass( wb.texture )
 	p:setDepthTest( nil )
 	p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
 	table.insert( _.passes, p )
@@ -1442,7 +1487,6 @@ function UI.TextBox( name, num_visible_chars, buffer )
 					_.focused_textbox.scroll = _.focused_textbox.scroll + 1
 				end
 			end
-
 		end
 
 		if #_.focused_textbox.text > 0 then
@@ -1461,17 +1505,32 @@ function UI.TextBox( name, num_visible_chars, buffer )
 
 	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
 	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = str, bbox = { x = text_rect.x + _.margin, y = text_rect.y,
-		w = (_.utf8.len( str, 1 ) * char_w) + _.margin, h = text_rect.h }, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, {
+		type = "text",
+		text = str,
+		bbox = {
+			x = text_rect.x + _.margin,
+			y = text_rect.y,
+			w = (_.utf8.len( str, 1 ) * char_w) + _.margin,
+			h = text_rect.h
+		},
+		color = _.colors.text
+	} )
 	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = name, bbox = label_rect, color = _.colors.text } )
 
 	-- _.caret
 	if _.focused_textbox and _.focused_textbox.id == my_id and _.caret.counter % _.caret.blink_rate > (_.caret.blink_rate / 2) then
 		table.insert( _.windows[ #_.windows ].command_list,
-			{ type = "rect_fill",
-				bbox = { x = text_rect.x + ((_.textbox_state[ tb_idx ].cursor - _.textbox_state[ tb_idx ].scroll + 1) * char_w) + _.margin + 8, y = text_rect.y + _.margin, w = 2,
-					h = text_h },
-				color = _.colors.text } )
+			{
+				type = "rect_fill",
+				bbox = {
+					x = text_rect.x + ((_.textbox_state[ tb_idx ].cursor - _.textbox_state[ tb_idx ].scroll + 1) * char_w) + _.margin + 8,
+					y = text_rect.y + _.margin,
+					w = 2,
+					h = text_h
+				},
+				color = _.colors.text
+			} )
 	end
 
 	return got_focus, buffer_changed, my_id, _.textbox_state[ tb_idx ].text
@@ -1484,7 +1543,8 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 
 	if lst_idx == nil then
 		local selected_idx = 1
-		if (type( selected ) == "number") then selected_idx = selected
+		if (type( selected ) == "number") then
+			selected_idx = selected
 		elseif (type( selected ) == "string") then
 			for i = 1, #collection do
 				if selected == collection[ i ] then
