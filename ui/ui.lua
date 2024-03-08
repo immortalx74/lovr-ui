@@ -978,6 +978,7 @@ function UI.End( main_pass )
 	if idx ~= nil then
 		if cur_window.w == _.textures[ idx ].w and cur_window.h == _.textures[ idx ].h then
 			cur_window.texture = _.textures[ idx ].texture
+			cur_window.pass = _.textures[ idx ].pass
 		else
 			lovr.graphics.wait()
 			_.textures[ idx ].texture:release()
@@ -990,6 +991,8 @@ function UI.End( main_pass )
 				delete = true
 			}
 			cur_window.texture = entry.texture
+			entry.pass = lovr.graphics.newPass( entry.texture )
+			cur_window.pass = entry.pass
 			table.insert( _.textures, entry )
 		end
 	else
@@ -1000,10 +1003,12 @@ function UI.End( main_pass )
 			texture = lovr.graphics.newTexture( _.layout.total_w, _.layout.total_h, texture_flags )
 		}
 		cur_window.texture = entry.texture
+		entry.pass = lovr.graphics.newPass( entry.texture )
+		cur_window.pass = entry.pass
 		table.insert( _.textures, entry )
 	end
 
-	cur_window.pass = lovr.graphics.newPass( cur_window.texture )
+	cur_window.pass:reset()
 	cur_window.pass:setFont( _.font.handle )
 	cur_window.pass:setDepthTest( nil )
 	cur_window.pass:setProjection( 1, mat4():orthographic( cur_window.pass:getDimensions() ) )
@@ -1206,7 +1211,8 @@ function UI.WhiteBoard( name, width, height )
 
 	if wb_idx == nil then
 		local tex = lovr.graphics.newTexture( width, height, { mipmaps = false } )
-		local wb = { id = my_id, texture = tex, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = _.whiteboards_default_ttl }
+		local pass = lovr.graphics.newPass( tex )
+		local wb = { id = my_id, texture = tex, pass = pass, w = width or tex:getWidth(), h = height or tex:getHeight(), ttl = _.whiteboards_default_ttl }
 		table.insert( _.whiteboards, wb )
 		wb_idx = #_.whiteboards
 	end
@@ -1248,11 +1254,11 @@ function UI.WhiteBoard( name, width, height )
 
 	table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
 
-	local p = lovr.graphics.newPass( wb.texture )
-	p:setDepthTest( nil )
-	p:setProjection( 1, mat4():orthographic( p:getDimensions() ) )
-	table.insert( _.passes, p )
-	return p, clicked, down, released, hovered, _.last_off_x - bbox.x, _.last_off_y - bbox.y
+	wb.pass:reset()
+	wb.pass:setDepthTest( nil )
+	wb.pass:setProjection( 1, mat4():orthographic( wb.pass:getDimensions() ) )
+	table.insert( _.passes, wb.pass )
+	return wb.pass, clicked, down, released, hovered, _.last_off_x - bbox.x, _.last_off_y - bbox.y
 end
 
 function UI.Dummy( width, height )
