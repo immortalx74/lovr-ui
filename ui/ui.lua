@@ -20,6 +20,19 @@ local UI = {}
 
 local root = (...):match( '(.-)[^%./]+$' ):gsub( '%.', '/' )
 
+local cmd_type = {
+	image = 1,
+	rect_fill = 2,
+	circle_fill = 3,
+	rect_wire = 4,
+	circle_wire = 5,
+	text = 6
+}
+
+local function sort_by_command_type( a, b )
+	return a.type < b.type
+end
+
 UI._ = {}
 
 local _ = UI._ --Allias for shorter access
@@ -1015,10 +1028,12 @@ function UI.End( main_pass )
 	cur_window.pass:setColor( _.colors.window_bg )
 	cur_window.pass:fill()
 	table.insert( _.windows[ #_.windows ].command_list,
-		{ type = "rect_wire", bbox = { x = 0, y = 0, w = cur_window.w, h = cur_window.h }, color = _.colors.window_border } )
+		{ type = cmd_type.rect_wire, bbox = { x = 0, y = 0, w = cur_window.w, h = cur_window.h }, color = _.colors.window_border } )
+
+	table.sort( cur_window.command_list, sort_by_command_type )
 
 	for i, v in ipairs( cur_window.command_list ) do
-		if v.type == "rect_fill" then
+		if v.type == cmd_type.rect_fill then
 			if v.is_separator then
 				cur_window.pass:setColor( v.color )
 				local m = lovr.math.newMat4( vec3( v.bbox.x + (cur_window.w / 2), v.bbox.y, 0 ), vec3( cur_window.w - (2 * _.margin), _.separator_thickness, 0 ) )
@@ -1028,22 +1043,22 @@ function UI.End( main_pass )
 				local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, v.bbox.h, 0 ) )
 				cur_window.pass:plane( m, "fill" )
 			end
-		elseif v.type == "rect_wire" then
+		elseif v.type == cmd_type.rect_wire then
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, v.bbox.h, 0 ) )
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:plane( m, "line" )
-		elseif v.type == "circle_wire" then
+		elseif v.type == cmd_type.circle_wire then
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w / 2, v.bbox.h / 2, 0 ) )
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:circle( m, "line" )
-		elseif v.type == "circle_fill" then
+		elseif v.type == cmd_type.circle_fill then
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w / 3, v.bbox.h / 3, 0 ) )
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:circle( m, "fill" )
-		elseif v.type == "text" then
+		elseif v.type == cmd_type.text then
 			cur_window.pass:setColor( v.color )
 			cur_window.pass:text( v.text, vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ) )
-		elseif v.type == "image" then
+		elseif v.type == cmd_type.image then
 			-- NOTE Temp fix. Had to do negative vertical scale. Otherwise image gets flipped?
 			local m = lovr.math.newMat4( vec3( v.bbox.x + (v.bbox.w / 2), v.bbox.y + (v.bbox.h / 2), 0 ), vec3( v.bbox.w, -v.bbox.h, 0 ) )
 			cur_window.pass:setColor( v.color )
@@ -1112,11 +1127,11 @@ function UI.ProgressBar( progress, width )
 	local str = progress .. "%"
 
 	table.insert( _.windows[ #_.windows ].command_list,
-		{ type = "rect_fill", bbox = { x = bbox.x, y = bbox.y, w = fill_w, h = bbox.h }, color = _.colors.progress_bar_fill } )
+		{ type = cmd_type.rect_fill, bbox = { x = bbox.x, y = bbox.y, w = fill_w, h = bbox.h }, color = _.colors.progress_bar_fill } )
 	table.insert( _.windows[ #_.windows ].command_list,
-		{ type = "rect_fill", bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = _.colors.progress_bar_bg } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.progress_bar_border } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = str, bbox = bbox, color = _.colors.text } )
+		{ type = cmd_type.rect_fill, bbox = { x = bbox.x + fill_w, y = bbox.y, w = bbox.w - fill_w, h = bbox.h }, color = _.colors.progress_bar_bg } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = bbox, color = _.colors.progress_bar_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = str, bbox = bbox, color = _.colors.text } )
 end
 
 function UI.Separator()
@@ -1129,7 +1144,7 @@ function UI.Separator()
 
 	_.UpdateLayout( bbox )
 
-	table.insert( _.windows[ #_.windows ].command_list, { is_separator = true, type = "rect_fill", bbox = bbox, color = _.colors.separator } )
+	table.insert( _.windows[ #_.windows ].command_list, { is_separator = true, type = cmd_type.rect_fill, bbox = bbox, color = _.colors.separator } )
 end
 
 function UI.ImageButton( img_filename, width, height, text )
@@ -1181,7 +1196,7 @@ function UI.ImageButton( img_filename, width, height, text )
 	if not _.modal_window or (_.modal_window and _.modal_window == cur_window.id) then
 		if _.PointInRect( _.last_off_x, _.last_off_y, bbox.x, bbox.y, bbox.w, bbox.h ) and cur_window.id == _.hovered_window_id then
 			_.hotID = my_id
-			table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.image_button_border_highlight } )
+			table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = bbox, color = _.colors.image_button_border_highlight } )
 			if _.input.trigger == _.e_trigger.pressed then
 				_.activeID = my_id
 			end
@@ -1194,11 +1209,11 @@ function UI.ImageButton( img_filename, width, height, text )
 
 	if text then
 		table.insert( _.windows[ #_.windows ].command_list,
-			{ type = "image", bbox = { x = bbox.x, y = bbox.y + ((bbox.h - ib.h) / 2), w = ib.w, h = ib.h }, texture = ib.texture, color = { 1, 1, 1 } } )
+			{ type = cmd_type.image, bbox = { x = bbox.x, y = bbox.y + ((bbox.h - ib.h) / 2), w = ib.w, h = ib.h }, texture = ib.texture, color = { 1, 1, 1 } } )
 		table.insert( _.windows[ #_.windows ].command_list,
-			{ type = "text", text = text, bbox = { x = bbox.x + ib.w, y = bbox.y, w = text_w + (2 * _.margin), h = bbox.h }, color = _.colors.text } )
+			{ type = cmd_type.text, text = text, bbox = { x = bbox.x + ib.w, y = bbox.y, w = text_w + (2 * _.margin), h = bbox.h }, color = _.colors.text } )
 	else
-		table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.image, bbox = bbox, texture = ib.texture, color = { 1, 1, 1 } } )
 	end
 
 	return result
@@ -1252,7 +1267,7 @@ function UI.WhiteBoard( name, width, height )
 		end
 	end
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "image", bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.image, bbox = bbox, texture = wb.texture, color = { 1, 1, 1 } } )
 
 	wb.pass:reset()
 	wb.pass:setDepthTest( nil )
@@ -1313,18 +1328,18 @@ function UI.TabBar( name, tabs, idx )
 		end
 
 		local tab_rect = { x = x_off, y = bbox.y, w = tab_w, h = bbox.h }
-		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = tab_rect, color = col } )
-		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = tab_rect, color = _.colors.tab_bar_border } )
-		table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = v, bbox = tab_rect, color = _.colors.text } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = tab_rect, color = col } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = tab_rect, color = _.colors.tab_bar_border } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = v, bbox = tab_rect, color = _.colors.text } )
 
 		if idx == i then
 			table.insert( _.windows[ #_.windows ].command_list,
-				{ type = "rect_fill", bbox = { x = tab_rect.x + 2, y = tab_rect.y + tab_rect.h - 6, w = tab_rect.w - 4, h = 5 }, color = _.colors.tab_bar_highlight } )
+				{ type = cmd_type.rect_fill, bbox = { x = tab_rect.x + 2, y = tab_rect.y + tab_rect.h - 6, w = tab_rect.w - 4, h = 5 }, color = _.colors.tab_bar_highlight } )
 		end
 		x_off = x_off + tab_w
 	end
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.tab_bar_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = bbox, color = _.colors.tab_bar_border } )
 	_.UpdateLayout( bbox )
 
 	return result, idx
@@ -1372,9 +1387,9 @@ function UI.Button( text, width, height )
 		end
 	end
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = bbox, color = col } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.button_border } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = bbox, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = bbox, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = bbox, color = _.colors.button_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = bbox, color = _.colors.text } )
 
 	return result
 end
@@ -1509,10 +1524,10 @@ function UI.TextBox( name, num_visible_chars, buffer )
 		end
 	end
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = text_rect, color = col1 } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = text_rect, color = col2 } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = text_rect, color = col1 } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = text_rect, color = col2 } )
 	table.insert( _.windows[ #_.windows ].command_list, {
-		type = "text",
+		type = cmd_type.text,
 		text = str,
 		bbox = {
 			x = text_rect.x + _.margin,
@@ -1522,13 +1537,13 @@ function UI.TextBox( name, num_visible_chars, buffer )
 		},
 		color = _.colors.text
 	} )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = name, bbox = label_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = name, bbox = label_rect, color = _.colors.text } )
 
 	-- _.caret
 	if _.focused_textbox and _.focused_textbox.id == my_id and _.caret.counter % _.caret.blink_rate > (_.caret.blink_rate / 2) then
 		table.insert( _.windows[ #_.windows ].command_list,
 			{
-				type = "rect_fill",
+				type = cmd_type.rect_fill,
 				bbox = {
 					x = text_rect.x + ((_.textbox_state[ tb_idx ].cursor - _.textbox_state[ tb_idx ].scroll + 1) * char_w) + _.margin + 8,
 					y = text_rect.y + _.margin,
@@ -1614,8 +1629,8 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 	end
 
 	_.listbox_state[ lst_idx ].selected_idx = _.Clamp( _.listbox_state[ lst_idx ].selected_idx, 0, #collection )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = bbox, color = _.colors.list_bg } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = bbox, color = _.colors.list_border } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = bbox, color = _.colors.list_bg } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = bbox, color = _.colors.list_border } )
 
 	-- Draw selected rect
 	local lst_scroll = _.listbox_state[ lst_idx ].scroll
@@ -1623,13 +1638,13 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 
 	if lst_selected_idx >= lst_scroll and lst_selected_idx <= lst_scroll + num_visible_rows then
 		local selected_rect = { x = bbox.x, y = bbox.y + (lst_selected_idx - lst_scroll) * text_h, w = bbox.w, h = text_h }
-		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = selected_rect, color = _.colors.list_selected } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = selected_rect, color = _.colors.list_selected } )
 	end
 
 	-- Draw highlight when hovered
 	if highlight_idx ~= nil then
 		local highlight_rect = { x = bbox.x, y = bbox.y + ((highlight_idx - 1) * text_h), w = bbox.w, h = text_h }
-		table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = highlight_rect, color = _.colors.list_highlight } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = highlight_rect, color = _.colors.list_highlight } )
 	end
 
 	local y_offset = bbox.y
@@ -1653,7 +1668,7 @@ function UI.ListBox( name, num_visible_rows, num_visible_chars, collection, sele
 
 		local item_w = _.font.handle:getWidth( str )
 		table.insert( _.windows[ #_.windows ].command_list,
-			{ type = "text", text = str, bbox = { x = bbox.x, y = y_offset, w = item_w + _.margin, h = text_h }, color = _.colors.text } )
+			{ type = cmd_type.text, text = str, bbox = { x = bbox.x, y = y_offset, w = item_w + _.margin, h = text_h }, color = _.colors.text } )
 		y_offset = y_offset + text_h
 	end
 
@@ -1751,10 +1766,10 @@ function UI.SliderInt( text, v, v_min, v_max, width )
 	local thumb_pos = _.MapRange( v_min, v_max, bbox.x, bbox.x + slider_w - thumb_w, v )
 	local thumb_rect = { x = thumb_pos, y = bbox.y + (bbox.h / 2) - (text_h / 2), w = thumb_w, h = thumb_w }
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = _.colors.slider_thumb } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = _.colors.text } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = v, bbox = text_value_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = slider_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = thumb_rect, color = _.colors.slider_thumb } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = text_label_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = v, bbox = text_value_rect, color = _.colors.text } )
 	return result, v
 end
 
@@ -1851,10 +1866,10 @@ function UI.SliderFloat( text, v, v_min, v_max, width, num_decimals )
 	num_decimals = num_decimals or 2
 	local str_fmt = "%." .. num_decimals .. "f"
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = slider_rect, color = col } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_fill", bbox = thumb_rect, color = _.colors.slider_thumb } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_label_rect, color = _.colors.text } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = string.format( str_fmt, v ), bbox = text_value_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = slider_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_fill, bbox = thumb_rect, color = _.colors.slider_thumb } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = text_label_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = string.format( str_fmt, v ), bbox = text_value_rect, color = _.colors.text } )
 	return result, v
 end
 
@@ -1877,7 +1892,7 @@ function UI.Label( text, compact )
 
 	_.UpdateLayout( bbox )
 
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = bbox, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = bbox, color = _.colors.text } )
 end
 
 function UI.CheckBox( text, checked )
@@ -1917,11 +1932,11 @@ function UI.CheckBox( text, checked )
 
 	local check_rect = { x = bbox.x, y = bbox.y + _.margin, w = text_h, h = text_h }
 	local text_rect = { x = bbox.x + text_h + _.margin, y = bbox.y, w = text_w + _.margin, h = bbox.h }
-	table.insert( _.windows[ #_.windows ].command_list, { type = "rect_wire", bbox = check_rect, color = col } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.rect_wire, bbox = check_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = text_rect, color = _.colors.text } )
 
 	if checked and type( checked ) == "boolean" then
-		table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = "✔", bbox = check_rect, color = _.colors.check_mark } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = "✔", bbox = check_rect, color = _.colors.check_mark } )
 	end
 
 	return result
@@ -1964,11 +1979,11 @@ function UI.RadioButton( text, checked )
 
 	local check_rect = { x = bbox.x, y = bbox.y + _.margin, w = text_h, h = text_h }
 	local text_rect = { x = bbox.x + text_h + _.margin, y = bbox.y, w = text_w + _.margin, h = bbox.h }
-	table.insert( _.windows[ #_.windows ].command_list, { type = "circle_wire", bbox = check_rect, color = col } )
-	table.insert( _.windows[ #_.windows ].command_list, { type = "text", text = text, bbox = text_rect, color = _.colors.text } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.circle_wire, bbox = check_rect, color = col } )
+	table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.text, text = text, bbox = text_rect, color = _.colors.text } )
 
 	if checked and type( checked ) == "boolean" then
-		table.insert( _.windows[ #_.windows ].command_list, { type = "circle_fill", bbox = check_rect, color = _.colors.radio_mark } )
+		table.insert( _.windows[ #_.windows ].command_list, { type = cmd_type.circle_fill, bbox = check_rect, color = _.colors.radio_mark } )
 	end
 
 	return result
